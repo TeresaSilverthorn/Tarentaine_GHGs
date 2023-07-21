@@ -9,6 +9,7 @@ library(ggplot2)
 library(scales) #for date_breaks
 library(dplyr)
 library(ggplot2)
+library(gasfluxes)
 
 library(ggpmisc)
 library(ggpubr)
@@ -199,6 +200,9 @@ ancil_dat <- read.csv ("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Docu
 
 str(ancil_dat) # 331 obs. of  36 variables
 
+#Make site a factor
+ancil_dat$site <- as.factor(ancil_dat$site)
+ancil_dat$flow_state <- as.factor(ancil_dat$flow_state)
 
 #add an ID column  
 ancil_dat <- ancil_dat %>%
@@ -214,4 +218,181 @@ ancil_dat <- ancil_dat %>%
   select(ID_unique, campaign, date, site, flow_state, datetime_start, datetime_end, everything())  %>% #reorder
 mutate(date = as.POSIXct(date, format = "%Y-%m-%d", tz = "Europe/Paris") ) #make date as.positx too
 
+########################################################################
 
+########## Adjust start and end times based on LGR time drift #########
+
+#On average LGR is 2 minutes ahead, I double checked each sampling date manually, so we have a specific time difference between the datasheet and Picarro time (minutes) in the column "Picarro_offset_min"
+
+ancil_dat <- ancil_dat %>%
+  mutate(
+    datetime_start = datetime_start + (Picarro_offset_min*60),
+    datetime_end = datetime_end + (Picarro_offset_min*60) ) %>%
+  select(ID_unique, campaign, date, site, flow_state, datetime_start, datetime_end, Picarro_offset_min, everything()) 
+
+#######################################################
+
+#### Clip the Picarro data to the start and end times for CO2 #####
+
+#If you clean CO2 and CH4 differently you will need to load in a new unique CO2 dataframe here e.g. andil_datCO2
+
+#For now, subset campaign 1: 
+ancil_dat_C1 <- ancil_dat[ancil_dat$campaign %in% c("1"), ]
+
+ID <- ancil_dat_C1$ID_unique
+startT<-ancil_dat_C1$datetime_start #start times
+endT<-ancil_dat_C1$datetime_end  # end times 
+
+for(i in 1:length(startT)){
+  st<-startT[i]
+  se<-endT[i]
+  id<-ID[i]
+  data<-Picarro_2022[Picarro_2022$time >= st & Picarro_2022$time <= se,]
+  data$ID<-id
+  
+  if(i==1){
+    assign(paste("data",i, sep="_"),data)
+  } else {
+    assign(paste("data",i, sep="_"),data)
+    assign(paste("data",i, sep="_"),rbind(get(paste("data",i, sep="_")),get(paste("data",i-1, sep="_"))))
+  }
+}
+
+Picarro_dat_CO2<-get(paste("data",length(startT),sep="_"))
+
+
+str(Picarro_dat_CO2) #32264 obs. of  24 variables for C1
+
+rm(list = ls()[grep("^data_", ls())]) #clear all of the clipped datasets
+
+#######################################################
+
+####  In order to set the initial time of each measurement to 0:  ####
+####  start by adding a column for epoch time (expressed as seconds since Jan 1, 1970) ####
+Picarro_dat_CO2$epoch_time <- as.integer(as.POSIXct(Picarro_dat_CO2$time), tz="Europe/Paris")
+#LGR_dat_CH4$epoch_time <- as.integer(as.POSIXct(LGR_dat_CH4$Time), tz="Europe/Paris")
+
+str(Picarro_dat_CO2)  #32264 obs. of  25 variables
+#str(LGR_dat_CH4)
+
+#there are duplicated time rows in the data, delete them (can cause problems later)
+dupsCO2 <- Picarro_dat_CO2[duplicated(epoch_time)]
+#dupsCH4 <- LGR_dat_CH4[duplicated(epoch_time)]
+
+str(dupsCO2)  # 70 obs. of  25
+#str(dupsCH4)  #
+
+Picarro_dat_CO2 <- Picarro_dat_CO2 %>% 
+  # Base the removal on the "epoch_time" column
+  distinct(epoch_time, .keep_all = TRUE)
+
+#LGR_dat_CH4 <- LGR_dat_CH4 %>% 
+  # Base the removal on the "epoch_time" column
+  #distinct(epoch_time, .keep_all = TRUE)
+
+str(Picarro_dat_CO2)  # 32194 obs. of  25 variables
+#str(LGR_dat_CH4)  #
+
+#then set  the initial time of each measure to 0h  (use Naiara's function to rest the min time to each time)
+rescale <- function(x) (x-min(x))
+
+#apply this function to all epoch_time (seconds) of each measure, 
+#and divide by 3600 (hours)
+Picarro_dat_CO2 <- setDT(Picarro_dat_CO2)[,c("flux_time"):=.(rescale(epoch_time/3600)),by=.(ID)]
+#LGR_dat_CH4 <- setDT(LGR_dat_CH4)[,c("flux_time"):=.(rescale(epoch_time/3600)),by=.(ID)]
+
+## keep only the desired columns from Picarro data
+Picarro_dat_CO2 <- subset(Picarro_dat_CO2, select = c( "CavityTemp", "CH4_dry", "CO2_dry", "ID", "flux_time", "EPOCH_TIME"))
+str(Picarro_dat_CO2) # 32194 obs. of  6 variables
+
+#rename ID to ID unique
+names(Picarro_dat_CO2)[names(Picarro_dat_CO2) == "ID"] <- "ID_unique"
+
+CO2_dat <- merge (Picarro_dat_CO2, ancil_dat , by="ID_unique", allow.cartesian=TRUE)
+
+#flux time needs to be ordered within each ID (use ID unique for all of the data)
+CO2_dat <- data.table(CO2_dat, key = c("ID_unique", "flux_time")) #Not sure why not working
+#CH4_dat <- data.table(CH4_dat_final, key = c("ID_unique", "flux_time"))
+
+str(CO2_dat) #32194 obs. of  44 variables obs. of  28 variables
+
+#############################################################################
+## Data cleaning ##
+
+# # delete clear outliers (CO2 and CH4 data that is not real) ## NOT SURE IF NECESSARY?
+# # this will make the plots more "clean"
+#
+#CO2
+
+#outliers_CO2<- boxplot(CO2_dat$CO2_dry ~ ID_unique , data=CO2_dat)
+#CO2_dat<- CO2_dat %>%
+ # filter(!row_number() %in% outliers_CO2)
+#str(CO2_dat) #332276 obs. obs. of  28 variables, 337817-332276 therefore 5541 obs removed for CO2 
+#plot_CO2<- Boxplot(CO2_dat$CO2_dry ~ ID_unique , data=CO2_dat) #check
+
+#str(CO2_dat) #320432 obs. of  31 variables
+
+
+#################################################################################
+
+######  Convert Picarro_dat concentration from ppm to mg-CO2-C/L and ug CH4-C/L using the ideal gas law (PV=nRT) for input to gasfluxes package.  #############  Note that ppm = uL/L
+
+#Need to update with this with the ibutton temperature and maybe get better air pressure values
+
+#put CO2 and CH4 concentration (now in ppm) in mg/L
+# mg/L = ((ppm  * molecular mass *1 atm )/1000) / (0.082 * 293K )
+# ug/L = (ppm  * molecular mass *1 atm ) / (0.082 * 293K ) #devide whether in ug or mg
+
+#Note here that we assume an atmospheric pressure of 1 atm and use the average air temperature of 25C
+
+CO2_dat$CO2_mg_L <- ((CO2_dat$CO2_dry  * 12.011 * 1 )/1000) / (0.08206 *(25 + 273.15))
+#CH4_dat$CH4_mg_L <- ((CH4_dat$CH4_ppm  * 12.011 *1 )/1000) / (0.082*(25 + 273.15))
+
+
+#Check the units
+#V = L
+#A = m2
+# flux time = h
+# concentration of CO2 / CH4 = mg/L
+
+#[f0] = mg/m^2/h
+
+mean(CO2_dat$chamber_volume) # 3.585717.....  L
+mean(CO2_dat$chamber_area) # 0.04523893..... m2
+median(CO2_dat$CO2_mg_L) # 0.224736........ mg/L          
+mean(CO2_dat$flux_time) # 0.04 h = 2.4 minutes
+
+###########################################################################
+
+#### run gasfluxes package ####
+
+setwd("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork 2022/Tarentaine_GHGs/Flux_figures/gasfluxes/CO2")
+
+#Run the package to calculate the gas flux rate
+CO2.results <- gasfluxes(CO2_dat, .id = "ID_unique", .V = "chamber_volume", .A = "chamber_area",.times = "flux_time", .C = "CO2_mg_L",method = c("linear"), plot = T) #can turn plot to FALSE if the number of plots was getting out of hand
+
+CO2.results #linear.f0 units are mg-CO2-C/m2/h
+str(CO2.results) #  118 obs. of  10 variables #so we are missing one observation
+
+#Find out which ones are missing 
+ancil_dat_C1$ID_unique[!(ancil_dat_C1$ID_unique %in% CO2.results$ID_unique)] #2022-06-02_TA12_2
+
+
+# Merge the flux data with the ancillary data
+
+CO2.results<- subset(CO2.results, select = c( "ID_unique", "linear.f0"))
+
+names(CO2.results)[names(CO2.results) == "linear.f0"] <- "CO2_C_mg_m2_h" #rename
+
+CO2_fluxes <- full_join(CO2.results, ancil_dat_C1, by= "ID_unique")
+
+str(CO2_fluxes) #119 obs. of  48 variables
+
+#### Plot the data ####
+
+plot <- ggplot(CO2_fluxes, aes(x = date, y = CO2_C_mg_m2_h, group=site, colour=site)) +
+  geom_boxplot()
+plot
+  
+  
+)
