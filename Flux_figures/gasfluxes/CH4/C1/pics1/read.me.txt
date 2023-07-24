@@ -1,0 +1,3 @@
+These gasflux figure outputs are from campaign 1. 
+When I adjusted the start and end times by a sampling time/site based value from visual inspection. 
+ 
