@@ -32,7 +32,7 @@ setwd("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork 2
 # Used the loaner Picarro (so maybe it is not 2 minutes ahead, need to check)
 
 #########################################
-### load raw data and metadata
+### load raw Picarro data ####
 ### put the date-time in the same format for all files
 ##########################################
 
@@ -146,8 +146,8 @@ May31 #TA03  #Picarro on average 2.25 minutes ahead
 Jun1<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-06-01 8:00" & Picarro_2022$time<"2022-06-01 11:00"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels = "%I:%M") + ylim(400,800)
 Jun1 #TA09 #Picarro on average 2 minutes ahead
 
-Jun1<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-06-01 11:40" & Picarro_2022$time<"2022-06-01 12:30"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels = "%I:%M") + ylim(400,500)
-Jun1 #TA10  #Picarro on average 1.58 minutes ahead
+Jun1<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-06-01 11:55" & Picarro_2022$time<"2022-06-01 12:10"),],aes(time, CH4_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels = "%I:%M") 
+Jun1 #TA10  #Picarro on average 1.58 minutes ahead 
 
 Jun1<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-06-01 13:00" & Picarro_2022$time<"2022-06-01 13:30"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels = "%I:%M") + ylim(400,800)
 Jun1 #TA11 #Picarro on average 1.83 minutes ahead
@@ -167,7 +167,7 @@ Jun2 #TA15 #Picarro on average 1.58 minutes ahead
 Jun2<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-06-02 14:00" & Picarro_2022$time<"2022-06-02 15:00"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels = "%I:%M")+ ylim(400,550)
 Jun2 #TA22   #Picarro on average 1.75 minutes ahead
 
-Jun2<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-06-02 15:00" & Picarro_2022$time<"2022-06-02 16:30"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels = "%I:%M")+ ylim(400,550)
+Jun2<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-06-02 15:00" & Picarro_2022$time<"2022-06-02 16:30"),],aes(time, CH4_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels = "%I:%M")
 Jun2 #TA24  #Picarro on average 2 minutes ahead
 
 Jun2<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-06-02 17:00" & Picarro_2022$time<"2022-06-02 18:30"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels = "%I:%M")+ ylim(400,1000)
@@ -185,24 +185,90 @@ Jun3 #TA13  #Picarro on average 1.92 minutes ahead
 Jun3<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-06-03 15:00" & Picarro_2022$time<"2022-06-03 18:00"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels = "%I:%M") + ylim(400,650)
 Jun3  #TA17  #Picarro on average 1.25 minutes ahead
 
+##########################################################
+
+#CAMPAIGN 2  # 
+
+Jul18<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-18 11:15" & Picarro_2022$time<"2022-07-18 13:00"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels = "%I:%M") + ylim(400,1100)
+Jul18  #TA11 #Picarro on average 2.5 minutes ahead 
+
+Jul18<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-18 14:15" & Picarro_2022$time<"2022-07-18 15:30"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,700)
+Jul18  #TA10  #Picarro on average 2.25 minutes ahead 
+
+Jul18<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-18 15:20" & Picarro_2022$time<"2022-07-18 16:30"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,1000)
+Jul18  #TA09   #Picarro on average 2.3 minutes ahead 
+
+Jul18<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-18 18:00" & Picarro_2022$time<"2022-07-18 19:30"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") 
+Jul18 #TA08  #Picarro on average 2.42 minutes ahead 
+
+Jul19<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-19 8:40" & Picarro_2022$time<"2022-07-19 10:10"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M")  + ylim(450,850)
+Jul19 #TA01  #Picarro on average 2.2 minutes ahead 
+
+Jul19<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-19 9:30" & Picarro_2022$time<"2022-07-19 10:40"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M")  + ylim(450,850)
+Jul19 #TA01  #Picarro on average 2.2 minutes ahead 
+
+Jul19<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-19 14:30" & Picarro_2022$time<"2022-07-19 15:40"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,500)
+Jul19 #TA02  #Picarro on average 2.67 minutes ahead 
+
+Jul19<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-19 17:30" & Picarro_2022$time<"2022-07-19 18:40"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(250,550)
+Jul19 #TA03  #Picarro on average 2.25 minutes ahead 
+
+Jul20<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-20 10:40" & Picarro_2022$time<"2022-07-20 11:40"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,650)
+Jul20  #TA04  #Picarro on average 2.4 minutes ahead 
+
+Jul20<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-20 11:30" & Picarro_2022$time<"2022-07-20 12:40"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(435,475)
+Jul20  #TA05 #Picarro on average 2.2 minutes ahead 
+
+Jul20<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-20 14:00" & Picarro_2022$time<"2022-07-20 15:20"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(420,480)
+Jul20  #TA06 #Picarro on average 2.2 minutes ahead 
+
+Jul20<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-20 16:30" & Picarro_2022$time<"2022-07-20 18:20"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(370,500)
+Jul20  #TA07 #Picarro on average 2.6 minutes ahead 
+
+Jul21<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-21 9:30" & Picarro_2022$time<"2022-07-21 10:50"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(420,700)
+Jul21  #TA15 #Picarro on average 2.2 minutes ahead 
+
+Jul21<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-21 11:00" & Picarro_2022$time<"2022-07-21 12:10"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,610)
+Jul21  #TA14  #Picarro on average 2.75 minutes ahead 
+
+Jul21<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-21 13:20" & Picarro_2022$time<"2022-07-21 14:20"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,710)
+Jul21 #TA13  #Picarro on average 2.67 minutes ahead 
+
+Jul21<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-21 15:20" & Picarro_2022$time<"2022-07-21 16:20"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,810)
+Jul21  #TA20  #Picarro on average 2.25 minutes ahead 
+
+Jul21<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-21 16:40" & Picarro_2022$time<"2022-07-21 17:40"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,800)
+Jul21  #TA21   #Picarro on average 2.33 minutes ahead 
+
+Jul22<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-22 10:20" & Picarro_2022$time<"2022-07-22 11:40"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,720)
+Jul22  #TA17  #Picarro on average 2.5 minutes ahead 
+
+Jul22<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-22 12:00" & Picarro_2022$time<"2022-07-22 13:15"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,550)
+Jul22  #TA22  #Picarro on average 2.4 minutes ahead 
+
+Jul22<- ggplot(data=Picarro_2022[which(Picarro_2022$time>"2022-07-22 14:40" & Picarro_2022$time<"2022-07-22 15:50"),],aes(time, CO2_dry))+ geom_point(size=0.5) + geom_line(size=0.1, alpha=0.5, colour="red") + scale_x_datetime(breaks=date_breaks("2 min"), date_labels= "%I:%M") + ylim(400,650)
+Jul22 #TA24  #Picarro on average 2.67 minutes ahead 
 
 
 
 ##########################################################
-#load the ancillary data
+#### load the ancillary data ####
 ##########################################################
 
 #Import ancillary data 
 
 #Update as necessary to most recent file in the Ancillary data folder in case you make any corrections to the Google Drive sheet
 
-ancil_dat <- read.csv ("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork 2022/Data/Ancillary data/Data_entry_Tarentaine_2022_2023-07-21.csv", header=T)
+ancil_dat <- read.csv ("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork 2022/Data/Ancillary data/Data_entry_Tarentaine_2022_2023-07-24.csv", header=T)
 
-str(ancil_dat) # 331 obs. of  36 variables
+str(ancil_dat) # 331 obs. of  37 variables
 
 #Make site a factor
 ancil_dat$site <- as.factor(ancil_dat$site)
 ancil_dat$flow_state <- as.factor(ancil_dat$flow_state)
+
+ancil_dat$water_temp_C <- as.numeric(ancil_dat$water_temp_C, na.rm=T)
+ancil_dat$canopy_cover_. <-  as.numeric(ancil_dat$canopy_cover_., na.rm=T) 
 
 #add an ID column  
 ancil_dat <- ancil_dat %>%
@@ -220,15 +286,17 @@ mutate(date = as.POSIXct(date, format = "%Y-%m-%d", tz = "Europe/Paris") ) #make
 
 ########################################################################
 
-########## Adjust start and end times based on LGR time drift #########
+########## Adjust start and end times based on Picarro time drift #########
 
-#On average LGR is 2 minutes ahead, I double checked each sampling date manually, so we have a specific time difference between the datasheet and Picarro time (minutes) in the column "Picarro_offset_min"
+#On average LGR is 2 minutes ahead, I double checked each sampling date manually, so we have a specific time difference between the datasheet and Picarro time (minutes) in the columns "Picarro_start_offset_mins" and "Picarro_end_offset_mins"
 
 ancil_dat <- ancil_dat %>%
   mutate(
-    datetime_start = datetime_start + (Picarro_offset_min*60),
-    datetime_end = datetime_end + (Picarro_offset_min*60) ) %>%
-  select(ID_unique, campaign, date, site, flow_state, datetime_start, datetime_end, Picarro_offset_min, everything()) 
+    CO2datetime_start = datetime_start + (CO2_start_offset_mins*60),
+    CO2datetime_end = datetime_end + (CO2_end_offset_mins*60) ,
+    CH4datetime_start = datetime_start + (CH4_start_offset_mins*60),
+    CH4datetime_end = datetime_end + (CH4_end_offset_mins*60) ) %>%
+  select(ID_unique, campaign, date, site, flow_state, start_time, end_time, CO2datetime_start, CO2datetime_end, CO2_start_offset_mins, CO2_end_offset_mins,  CH4datetime_start, CH4datetime_end,  CH4_start_offset_mins, CH4_end_offset_mins,  everything()) 
 
 #######################################################
 
@@ -236,12 +304,13 @@ ancil_dat <- ancil_dat %>%
 
 #If you clean CO2 and CH4 differently you will need to load in a new unique CO2 dataframe here e.g. andil_datCO2
 
-#For now, subset campaign 1: 
-ancil_dat_C1 <- ancil_dat[ancil_dat$campaign %in% c("1"), ]
+#For now, subset campaign 1/2: 
+ancil_dat_C1_C2 <- ancil_dat %>%
+  filter(campaign %in% c("1", "2"))
 
-ID <- ancil_dat_C1$ID_unique
-startT<-ancil_dat_C1$datetime_start #start times
-endT<-ancil_dat_C1$datetime_end  # end times 
+ID <- ancil_dat_C1_C2$ID_unique
+startT<-ancil_dat_C1_C2$CO2datetime_start #start times
+endT<-ancil_dat_C1_C2$CO2datetime_end  # end times 
 
 for(i in 1:length(startT)){
   st<-startT[i]
@@ -267,31 +336,71 @@ rm(list = ls()[grep("^data_", ls())]) #clear all of the clipped datasets
 
 #######################################################
 
+#### Clip the Picarro data to the start and end times for CH4 #####
+
+#For now, subset campaign 1/2: 
+ancil_dat_C1_C2 <- ancil_dat %>%
+  filter(campaign %in% c("1", "2"))
+
+ID <- ancil_dat_C1_C2$ID_unique
+startT<-ancil_dat_C1_C2$CH4datetime_start #start times
+endT<-ancil_dat_C1_C2$CH4datetime_end  # end times 
+
+for(i in 1:length(startT)){
+  st<-startT[i]
+  se<-endT[i]
+  id<-ID[i]
+  data<-Picarro_2022[Picarro_2022$time >= st & Picarro_2022$time <= se,]
+  data$ID<-id
+  
+  if(i==1){
+    assign(paste("data",i, sep="_"),data)
+  } else {
+    assign(paste("data",i, sep="_"),data)
+    assign(paste("data",i, sep="_"),rbind(get(paste("data",i, sep="_")),get(paste("data",i-1, sep="_"))))
+  }
+}
+
+Picarro_dat_CH4<-get(paste("data",length(startT),sep="_"))
+
+
+str(Picarro_dat_CH4) #32264 obs. of  24 variables for C1
+
+rm(list = ls()[grep("^data_", ls())]) #clear all of the clipped datasets
+
+#######################################################
+
+#### Other data cleaning ####
+
+#For CH4 there was a weird peak, so you will need to remove 2022-06-01_TA10_6
+
+#######################################################
+
 ####  In order to set the initial time of each measurement to 0:  ####
 ####  start by adding a column for epoch time (expressed as seconds since Jan 1, 1970) ####
 Picarro_dat_CO2$epoch_time <- as.integer(as.POSIXct(Picarro_dat_CO2$time), tz="Europe/Paris")
-#LGR_dat_CH4$epoch_time <- as.integer(as.POSIXct(LGR_dat_CH4$Time), tz="Europe/Paris")
+Picarro_dat_CH4$epoch_time <- as.integer(as.POSIXct(Picarro_dat_CH4$time), tz="Europe/Paris")
 
 str(Picarro_dat_CO2)  #32264 obs. of  25 variables
-#str(LGR_dat_CH4)
+str(Picarro_dat_CH4)  #32264 obs. of  25 variables 
 
 #there are duplicated time rows in the data, delete them (can cause problems later)
 dupsCO2 <- Picarro_dat_CO2[duplicated(epoch_time)]
-#dupsCH4 <- LGR_dat_CH4[duplicated(epoch_time)]
+dupsCH4 <- Picarro_dat_CH4[duplicated(epoch_time)]
 
-str(dupsCO2)  # 70 obs. of  25
-#str(dupsCH4)  #
+str(dupsCO2)  # 69 obs. of  25
+str(dupsCH4)  # 70 obs
 
 Picarro_dat_CO2 <- Picarro_dat_CO2 %>% 
   # Base the removal on the "epoch_time" column
   distinct(epoch_time, .keep_all = TRUE)
 
-#LGR_dat_CH4 <- LGR_dat_CH4 %>% 
-  # Base the removal on the "epoch_time" column
-  #distinct(epoch_time, .keep_all = TRUE)
+Picarro_dat_CH4 <- Picarro_dat_CH4 %>% 
+   #Base the removal on the "epoch_time" column
+  distinct(epoch_time, .keep_all = TRUE)
 
 str(Picarro_dat_CO2)  # 32194 obs. of  25 variables
-#str(LGR_dat_CH4)  #
+str(Picarro_dat_CH4)  # 32194 obs. of  25 variables
 
 #then set  the initial time of each measure to 0h  (use Naiara's function to rest the min time to each time)
 rescale <- function(x) (x-min(x))
@@ -299,22 +408,28 @@ rescale <- function(x) (x-min(x))
 #apply this function to all epoch_time (seconds) of each measure, 
 #and divide by 3600 (hours)
 Picarro_dat_CO2 <- setDT(Picarro_dat_CO2)[,c("flux_time"):=.(rescale(epoch_time/3600)),by=.(ID)]
-#LGR_dat_CH4 <- setDT(LGR_dat_CH4)[,c("flux_time"):=.(rescale(epoch_time/3600)),by=.(ID)]
+Picarro_dat_CH4 <- setDT(Picarro_dat_CH4)[,c("flux_time"):=.(rescale(epoch_time/3600)),by=.(ID)]
 
 ## keep only the desired columns from Picarro data
-Picarro_dat_CO2 <- subset(Picarro_dat_CO2, select = c( "CavityTemp", "CH4_dry", "CO2_dry", "ID", "flux_time", "EPOCH_TIME"))
+Picarro_dat_CO2 <- subset(Picarro_dat_CO2, select = c( "CavityTemp","CO2_dry", "ID", "flux_time", "EPOCH_TIME"))
 str(Picarro_dat_CO2) # 32194 obs. of  6 variables
+
+Picarro_dat_CH4  <- subset(Picarro_dat_CH4, select = c( "CavityTemp", "CH4_dry",  "ID", "flux_time", "EPOCH_TIME"))
+str(Picarro_dat_CH4)
 
 #rename ID to ID unique
 names(Picarro_dat_CO2)[names(Picarro_dat_CO2) == "ID"] <- "ID_unique"
+names(Picarro_dat_CH4)[names(Picarro_dat_CH4) == "ID"] <- "ID_unique"
 
 CO2_dat <- merge (Picarro_dat_CO2, ancil_dat , by="ID_unique", allow.cartesian=TRUE)
+CH4_dat <- merge (Picarro_dat_CH4, ancil_dat , by="ID_unique", allow.cartesian=TRUE)
 
 #flux time needs to be ordered within each ID (use ID unique for all of the data)
-CO2_dat <- data.table(CO2_dat, key = c("ID_unique", "flux_time")) #Not sure why not working
-#CH4_dat <- data.table(CH4_dat_final, key = c("ID_unique", "flux_time"))
+CO2_dat <- data.table(CO2_dat, key = c("ID_unique", "flux_time")) 
+CH4_dat <- data.table(CH4_dat, key = c("ID_unique", "flux_time"))
 
-str(CO2_dat) #32194 obs. of  44 variables obs. of  28 variables
+str(CO2_dat) #32194 obs. of  44 variables 
+str(CH4_dat) #32194 obs. of  51 variables 
 
 #############################################################################
 ## Data cleaning ##
@@ -346,7 +461,7 @@ str(CO2_dat) #32194 obs. of  44 variables obs. of  28 variables
 #Note here that we assume an atmospheric pressure of 1 atm and use the average air temperature of 25C
 
 CO2_dat$CO2_mg_L <- ((CO2_dat$CO2_dry  * 12.011 * 1 )/1000) / (0.08206 *(25 + 273.15))
-#CH4_dat$CH4_mg_L <- ((CH4_dat$CH4_ppm  * 12.011 *1 )/1000) / (0.082*(25 + 273.15))
+CH4_dat$CH4_mg_L <- ((CH4_dat$CH4_dry  * 12.011 * 1 )/1000) / (0.082*(25 + 273.15))
 
 
 #Check the units
@@ -359,12 +474,15 @@ CO2_dat$CO2_mg_L <- ((CO2_dat$CO2_dry  * 12.011 * 1 )/1000) / (0.08206 *(25 + 27
 
 mean(CO2_dat$chamber_volume) # 3.585717.....  L
 mean(CO2_dat$chamber_area) # 0.04523893..... m2
-median(CO2_dat$CO2_mg_L) # 0.224736........ mg/L          
+median(CO2_dat$CO2_mg_L) # 0.224736........ mg/L   
+median(CH4_dat$CH4_mg_L)  #0.00102........... mg/L
 mean(CO2_dat$flux_time) # 0.04 h = 2.4 minutes
 
 ###########################################################################
 
 #### run gasfluxes package ####
+
+#### for CO2 ####
 
 setwd("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork 2022/Tarentaine_GHGs/Flux_figures/gasfluxes/CO2")
 
@@ -372,10 +490,10 @@ setwd("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork 2
 CO2.results <- gasfluxes(CO2_dat, .id = "ID_unique", .V = "chamber_volume", .A = "chamber_area",.times = "flux_time", .C = "CO2_mg_L",method = c("linear"), plot = T) #can turn plot to FALSE if the number of plots was getting out of hand
 
 CO2.results #linear.f0 units are mg-CO2-C/m2/h
-str(CO2.results) #  118 obs. of  10 variables #so we are missing one observation
+str(CO2.results) #  232 obs. of  10 variables #so we are missing one observation
 
 #Find out which ones are missing 
-ancil_dat_C1$ID_unique[!(ancil_dat_C1$ID_unique %in% CO2.results$ID_unique)] #2022-06-02_TA12_2
+ancil_dat_C1_C2$ID_unique[!(ancil_dat_C1_C2$ID_unique %in% CO2.results$ID_unique)] #2022-06-02_TA12_2
 
 
 # Merge the flux data with the ancillary data
@@ -384,15 +502,69 @@ CO2.results<- subset(CO2.results, select = c( "ID_unique", "linear.f0"))
 
 names(CO2.results)[names(CO2.results) == "linear.f0"] <- "CO2_C_mg_m2_h" #rename
 
-CO2_fluxes <- full_join(CO2.results, ancil_dat_C1, by= "ID_unique")
+CO2_fluxes <- full_join(CO2.results, ancil_dat_C1_C2, by= "ID_unique")
 
 str(CO2_fluxes) #119 obs. of  48 variables
 
+##############################################################
+
+#### for CH4 ####
+
+setwd("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork 2022/Tarentaine_GHGs/Flux_figures/gasfluxes/CH4")
+
+#Run the package to calculate the gas flux rate
+CH4.results <- gasfluxes(CH4_dat, .id = "ID_unique", .V = "chamber_volume", .A = "chamber_area",.times = "flux_time", .C = "CH4_mg_L",method = c("linear"), plot = T) #can turn plot to FALSE if the number of plots was getting out of hand
+
+CH4.results #linear.f0 units are mg-CH4-C/m2/h
+str(CH4.results) #  118 obs
+
+#Find out which ones are missing 
+ancil_dat_C1_C2$ID_unique[!(ancil_dat_C1_C2$ID_unique %in% CH4.results$ID_unique)] #2022-06-02_TA12_2
+
+
+# Merge the flux data with the ancillary data
+
+CH4.results<- subset(CH4.results, select = c( "ID_unique", "linear.f0"))
+
+names(CH4.results)[names(CH4.results) == "linear.f0"] <- "CH4_C_mg_m2_h" #rename
+
+CH4.results <- full_join(CH4.results, ancil_dat_C1, by= "ID_unique")
+
+str(CH4.results) 
+
+
+
+
 #### Plot the data ####
 
-plot <- ggplot(CO2_fluxes, aes(x = date, y = CO2_C_mg_m2_h, group=site, colour=site)) +
+plot_bysite <- ggplot(CO2_fluxes, aes(x = date, y = CO2_C_mg_m2_h, group=site, colour=site)) +
   geom_boxplot()
-plot
+plot_bysite
+
+plot_bywidth <- ggplot(CO2_fluxes, aes(x = wetted_width_m, y = CO2_C_mg_m2_h)) +
+  geom_point()
+plot_bywidth
+
+plot_temp <- ggplot(CO2_fluxes, aes(x = water_temp_C, y = CO2_C_mg_m2_h)) +
+  geom_point()
+plot_temp
+
+plot_pH <- ggplot(CO2_fluxes, aes(x = water_pH, y = CO2_C_mg_m2_h)) +
+  geom_point()
+plot_pH
+
+plot_cond <- ggplot(CO2_fluxes, aes(x = water_conductivity_us_cm, y = CO2_C_mg_m2_h)) +
+  geom_point()
+plot_cond
+
+plot_DO <- ggplot(CO2_fluxes, aes(x = DO_mg_L, y = CO2_C_mg_m2_h)) +
+  geom_point()
+plot_DO
+
+plot_canopy <- ggplot(CO2_fluxes, aes(x = canopy_cover_., y = CO2_C_mg_m2_h)) +
+  geom_point()
+plot_canopy
+
   
   
-)
+
