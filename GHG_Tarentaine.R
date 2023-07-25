@@ -591,43 +591,24 @@ CH4.results<- subset(CH4.results, select = c( "ID_unique", "linear.f0"))
 
 names(CH4.results)[names(CH4.results) == "linear.f0"] <- "CH4_C_mg_m2_h" #rename
 
-CH4.results <- full_join(CH4.results, ancil_dat, by= "ID_unique")
+CH4_fluxes <- full_join(CH4.results, ancil_dat, by= "ID_unique")
 
-str(CH4.results) #327 obs. of  48 variables (1 NA value) 
+str(CH4_fluxes) #327 obs. of  48 variables (1 NA value) 
+
+#################################################################
+
+#Merge the CH4 and CO2 outputs
+
+#Merge the CO2 and CH4 results by ID
+CO2.CH4.results <- merge (CO2.results, CH4.results, by= "ID_unique")
+str(CO2.CH4.results) #322 obs. of  49 variables
+
+#Merge with the ancillary data
+CO2.CH4.fluxes <- merge (CO2.CH4.results, ancil_dat, by= "ID_unique")
+str(CO2.CH4.fluxes) #252 obs. of  15 variables
 
 
+# Save as csv
 
-
-#### Plot the data ####
-
-plot_bysite <- ggplot(CO2_fluxes, aes(x = date, y = CO2_C_mg_m2_h, group=site, colour=site)) +
-  geom_boxplot()
-plot_bysite
-
-plot_bywidth <- ggplot(CO2_fluxes, aes(x = wetted_width_m, y = CO2_C_mg_m2_h)) +
-  geom_point()
-plot_bywidth
-
-plot_temp <- ggplot(CO2_fluxes, aes(x = water_temp_C, y = CO2_C_mg_m2_h)) +
-  geom_point()
-plot_temp
-
-plot_pH <- ggplot(CO2_fluxes, aes(x = water_pH, y = CO2_C_mg_m2_h)) +
-  geom_point()
-plot_pH
-
-plot_cond <- ggplot(CO2_fluxes, aes(x = water_conductivity_us_cm, y = CO2_C_mg_m2_h)) +
-  geom_point()
-plot_cond
-
-plot_DO <- ggplot(CO2_fluxes, aes(x = DO_mg_L, y = CO2_C_mg_m2_h)) +
-  geom_point()
-plot_DO
-
-plot_canopy <- ggplot(CO2_fluxes, aes(x = canopy_cover_., y = CO2_C_mg_m2_h)) +
-  geom_point()
-plot_canopy
-
-  
-  
+write.csv (CO2.CH4.fluxes, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork 2022/Tarentaine_GHGs/CO2.CH4.fluxes.csv")
 
