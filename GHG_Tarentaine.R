@@ -336,13 +336,16 @@ ancil_dat <- ancil_dat %>%
   select(ID_unique, everything()) #make this ID_unique column come first
 
 # Add date to the start and end time columns and format as as.POSITX
+
 ancil_dat <- ancil_dat %>%
-  mutate(datetime_start = as.POSIXct(paste(date, start_time), format = "%Y-%m-%d %H:%M:%S", tz = "Europe/Paris"),
-         datetime_end = as.POSIXct(paste(date, end_time), format = "%Y-%m-%d %H:%M:%S", tz = "Europe/Paris"),
-         datetime_start = if_else(is.na(datetime_start), as.POSIXct(paste(date, start_time), format = "%Y-%m-%d %H:%M", tz = "Europe/Paris"), datetime_start),
-         datetime_end = if_else(is.na(datetime_end), as.POSIXct(paste(date, end_time), format = "%Y-%m-%d %H:%M", tz = "Europe/Paris"), datetime_end)) %>%
-  select(ID_unique, campaign, date, site, flow_state, datetime_start, datetime_end, everything())  %>% #reorder
-mutate(date = as.POSIXct(date, format = "%Y-%m-%d", tz = "Europe/Paris") ) #make date as.positx too
+  mutate(
+    start_time = ifelse(nchar(start_time) == 5, paste0(start_time, ":00"), start_time),
+    end_time = ifelse(nchar(end_time) == 5, paste0(end_time, ":00"), end_time),
+    datetime_start = as.POSIXct(paste(date, start_time), format = "%Y-%m-%d %H:%M:%S", tz = "Europe/Paris"),
+    datetime_end = as.POSIXct(paste(date, end_time), format = "%Y-%m-%d %H:%M:%S", tz = "Europe/Paris")
+  ) %>%
+  select(ID_unique, campaign, date, site, flow_state, datetime_start, datetime_end, everything()) %>% #reorder
+  mutate(date = as.POSIXct(date, format = "%Y-%m-%d", tz = "Europe/Paris")) #make date as.POSIXct too
 
 ########################################################################
 
@@ -358,19 +361,20 @@ ancil_dat <- ancil_dat %>%
     CH4datetime_end = datetime_end + (CH4_end_offset_mins*60) ) %>%
   select(ID_unique, campaign, date, site, flow_state, start_time, end_time, CO2datetime_start, CO2datetime_end, CO2_start_offset_mins, CO2_end_offset_mins,  CH4datetime_start, CH4datetime_end,  CH4_start_offset_mins, CH4_end_offset_mins,  everything()) 
 
+
 #######################################################
 
 #### Clip the Picarro data to the start and end times for CO2 #####
 
-#If you clean CO2 and CH4 differently you will need to load in a new unique CO2 dataframe here e.g. andil_datCO2
+#If you clean CO2 and CH4 differently 
 
-#For now, subset campaign 1/2: 
-ancil_dat_C3 <- ancil_dat %>%
-  filter(campaign %in% c("3"))
+#To start, subset campaign 1/2: 
+#ancil_dat_C3 <- ancil_dat %>%
+ # filter(campaign %in% c("3"))
 
-ID <- ancil_dat_C3$ID_unique
-startT<-ancil_dat_C3$CO2datetime_start #start times
-endT<-ancil_dat_C3$CO2datetime_end  # end times 
+ID <- ancil_dat$ID_unique
+startT<-ancil_dat$CO2datetime_start #start times
+endT<-ancil_dat$CO2datetime_end  # end times 
 
 for(i in 1:length(startT)){
   st<-startT[i]
@@ -390,7 +394,7 @@ for(i in 1:length(startT)){
 Picarro_dat_CO2<-get(paste("data",length(startT),sep="_"))
 
 
-str(Picarro_dat_CO2) #32264 obs. of  24 variables for C1
+str(Picarro_dat_CO2) #83828 obs. of  24 variables 
 
 rm(list = ls()[grep("^data_", ls())]) #clear all of the clipped datasets
 
@@ -399,12 +403,12 @@ rm(list = ls()[grep("^data_", ls())]) #clear all of the clipped datasets
 #### Clip the Picarro data to the start and end times for CH4 #####
 
 #For now, subset campaign 1/2: 
-ancil_dat_C3 <- ancil_dat %>%
-  filter(campaign %in% c("3"))
+#ancil_dat_C3 <- ancil_dat %>%
+ # filter(campaign %in% c("3"))
 
-ID <- ancil_dat_C3$ID_unique
-startT<-ancil_dat_C3$CH4datetime_start #start times
-endT<-ancil_dat_C3$CH4datetime_end  # end times 
+ID <- ancil_dat$ID_unique
+startT<-ancil_dat$CH4datetime_start #start times
+endT<-ancil_dat$CH4datetime_end  # end times 
 
 for(i in 1:length(startT)){
   st<-startT[i]
@@ -424,7 +428,7 @@ for(i in 1:length(startT)){
 Picarro_dat_CH4<-get(paste("data",length(startT),sep="_"))
 
 
-str(Picarro_dat_CH4) #32264 obs. of  24 variables for C1
+str(Picarro_dat_CH4) #84674 obs. of  24 variables 
 
 rm(list = ls()[grep("^data_", ls())]) #clear all of the clipped datasets
 
@@ -434,8 +438,14 @@ rm(list = ls()[grep("^data_", ls())]) #clear all of the clipped datasets
 
 #For CH4 there was a weird peak, so you will need to remove 2022-06-01_TA10_6
 
+Picarro_dat_CH4 <- Picarro_dat_CH4 %>%
+  filter(ID != "2022-06-01_TA10_6")
 
 # CO2 bad flux 2022-10-12_TA14_2 and 2022-10-12_TA14_5 and 2022-10-14_TA24_5  and 2022-10-10_TA01_4 and 2022-10-12_TA14_5 and 2020-10-14_TA24_5 because the Picarro wasn't working/froze
+
+Picarro_dat_CO2 <- Picarro_dat_CO2 %>%
+  filter(!ID %in% c("2022-10-12_TA14_2", "2022-10-10_TA01_4", "2022-10-12_TA14_5", "2020-10-14_TA24_5" ))
+
 
 #In C3 there are some negative CO2 values, 47 values. Need to remove them for gas fluxes. 
 
@@ -496,24 +506,8 @@ CH4_dat <- merge (Picarro_dat_CH4, ancil_dat , by="ID_unique", allow.cartesian=T
 CO2_dat <- data.table(CO2_dat, key = c("ID_unique", "flux_time")) 
 CH4_dat <- data.table(CH4_dat, key = c("ID_unique", "flux_time"))
 
-str(CO2_dat) #32194 obs. of  44 variables 
-str(CH4_dat) #32194 obs. of  51 variables 
-
-#############################################################################
-## Data cleaning ##
-
-# # delete clear outliers (CO2 and CH4 data that is not real) ## NOT SURE IF NECESSARY?
-# # this will make the plots more "clean"
-#
-#CO2
-
-#outliers_CO2<- boxplot(CO2_dat$CO2_dry ~ ID_unique , data=CO2_dat)
-#CO2_dat<- CO2_dat %>%
- # filter(!row_number() %in% outliers_CO2)
-#str(CO2_dat) #332276 obs. obs. of  28 variables, 337817-332276 therefore 5541 obs removed for CO2 
-#plot_CO2<- Boxplot(CO2_dat$CO2_dry ~ ID_unique , data=CO2_dat) #check
-
-#str(CO2_dat) #320432 obs. of  31 variables
+str(CO2_dat) #82749 obs. of  51 variables
+str(CH4_dat) #84075 obs. of  51 variables
 
 
 #################################################################################
@@ -558,11 +552,12 @@ setwd("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork 2
 CO2.results <- gasfluxes(CO2_dat, .id = "ID_unique", .V = "chamber_volume", .A = "chamber_area",.times = "flux_time", .C = "CO2_mg_L",method = c("linear"), plot = T) #can turn plot to FALSE if the number of plots was getting out of hand
 
 CO2.results #linear.f0 units are mg-CO2-C/m2/h
-str(CO2.results) #  232 obs. of  10 variables #so we are missing one observation
+str(CO2.results) #  323 obs. of  10 variables
 
 #Find out which ones are missing 
-ancil_dat_C3$ID_unique[!(ancil_dat_C3$ID_unique %in% CO2.results$ID_unique)] #2022-06-02_TA12_2
+ancil_dat$ID_unique[!(ancil_dat$ID_unique %in% CO2.results$ID_unique)] # "2022-10-10_TA01_4" "2022-10-12_TA14_2" "2022-10-12_TA14_5" "2022-10-14_TA24_5"
 
+#What we removed previously: "2022-10-10_TA01_4", "2022-10-12_TA14_2", "2022-10-12_TA14_5", "2022-10-14_TA24_5"
 
 # Merge the flux data with the ancillary data
 
@@ -570,9 +565,9 @@ CO2.results<- subset(CO2.results, select = c( "ID_unique", "linear.f0"))
 
 names(CO2.results)[names(CO2.results) == "linear.f0"] <- "CO2_C_mg_m2_h" #rename
 
-CO2_fluxes <- full_join(CO2.results, ancil_dat_C3, by= "ID_unique")
+CO2_fluxes <- full_join(CO2.results, ancil_dat, by= "ID_unique")
 
-str(CO2_fluxes) #119 obs. of  48 variables
+str(CO2_fluxes) #327 obs. of  48 variables (4 NA flux values)
 
 ##############################################################
 
@@ -584,10 +579,10 @@ setwd("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork 2
 CH4.results <- gasfluxes(CH4_dat, .id = "ID_unique", .V = "chamber_volume", .A = "chamber_area",.times = "flux_time", .C = "CH4_mg_L",method = c("linear"), plot = T) #can turn plot to FALSE if the number of plots was getting out of hand
 
 CH4.results #linear.f0 units are mg-CH4-C/m2/h
-str(CH4.results) #  233 obs
+str(CH4.results) #  326 obs. of  10 variables
 
 #Find out if any / which ones are missing 
-ancil_dat_C1_C2$ID_unique[!(ancil_dat_C1_C2$ID_unique %in% CH4.results$ID_unique)] #none
+ancil_dat$ID_unique[!(ancil_dat$ID_unique %in% CH4.results$ID_unique)]  #"2022-06-01_TA10_6"
 
 
 # Merge the flux data with the ancillary data
@@ -596,9 +591,9 @@ CH4.results<- subset(CH4.results, select = c( "ID_unique", "linear.f0"))
 
 names(CH4.results)[names(CH4.results) == "linear.f0"] <- "CH4_C_mg_m2_h" #rename
 
-CH4.results <- full_join(CH4.results, ancil_dat_C1, by= "ID_unique")
+CH4.results <- full_join(CH4.results, ancil_dat, by= "ID_unique")
 
-str(CH4.results) 
+str(CH4.results) #327 obs. of  48 variables (1 NA value) 
 
 
 
