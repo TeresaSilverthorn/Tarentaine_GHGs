@@ -119,14 +119,14 @@ for(i in 1:nrow(air_temp)){
   
 }
 
-write.table(matTemp,file="C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/ibutton_air_temp.csv") 
+write.table(matTemp,file="C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/ibutton_air_temp_C1.csv") 
 
 
 ### Read in the data and check for any outliers
 
 #first you will need to read in the CSV's using fread because of the weird formatting of write.table
 
-air.temp <- fread("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/ibutton_air_temp.csv") #For C1 
+air.temp <- fread("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/ibutton_air_temp_C1.csv") #For C1 
 
 colnames(air.temp) <- c("ID_unique", "Air_temp")
 
@@ -151,3 +151,90 @@ Jun02
 
 Jun03 <- ggplot(data = subset(ancil_dat_temp, month(datetime_start) == 6 & day(datetime_start) == 3), aes(x = datetime_start, y = Air_temp)) + geom_point() + scale_x_datetime(date_labels = "%H", breaks = "1 hour")
 Jun03 
+
+
+###############################################################################
+
+#### For campaign 2 and 3 ####
+
+#We used a single iButton attached to the Picarro in these cases, so need to watch out for artefacts from storing the material in the car!
+
+#Read in the iButton for C2
+temp_C2 <- fread("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/C2_Picarro_iButton/55_460000003200B421_072722.csv", header=T)
+
+#rename columns
+colnames(temp_C2) <- c("date_time", "unit", "temp_C")
+
+#change time format
+temp_C2$date_time <- as.POSIXct(temp_C2$date_time, format = "%d/%m/%y %I:%M:%S %p")
+
+
+#Read in the iButton for C3
+temp_C3 <- fread("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/C3_Picarro_iButton/64_9A00000031D48F21_101822.csv", header=T)
+
+#rename columns
+colnames(temp_C3) <- c("date_time", "unit", "temp_C")
+
+#change time format
+temp_C3$date_time <- as.POSIXct(temp_C3$date_time, format = "%d/%m/%y %I:%M:%S %p")
+
+#################
+
+#Merge 
+
+temp_C2_C3 <- bind_rows(temp_C2, temp_C3)
+
+#################
+
+#################################################################################################
+### Use a loop to select the correct datalogger file and choose the closest air temperature #####
+
+#Subset campaigns 2 and 3 
+ancil_dat_C2_C3 <- subset(ancil_dat, campaign=="2" | campaign=="3")
+
+# Convert both dataframes to data.table for efficient rolling join
+setDT(ancil_dat_C2_C3)
+setDT(temp_C2_C3)
+
+# Perform the rolling join to find the closest datetime
+test <- temp_C2_C3[ancil_dat_C2_C3, roll = "nearest", on = .(date_time = datetime_start)]
+
+#Make some plots for quality control to see how this worked
+plotC1 <- ggplot(data = subset(temp_C2_C3, month(date_time) == 7), aes(x = date_time, y = temp_C)) + geom_point() + scale_x_datetime(date_labels = "%d %H", breaks = "12 hour")
+plotC1 
+
+plot_testC1 <- ggplot(data = subset(test, month(date_time) == 7), aes(x = date_time, y = temp_C)) + geom_point() + scale_x_datetime(date_labels = "%d %H", breaks = "12 hour")
+plot_testC1 
+
+plotC2 <- ggplot(data = subset(temp_C2_C3, month(date_time) == 10), aes(x = date_time, y = temp_C)) + geom_point() + scale_x_datetime(date_labels = "%d %H", breaks = "12 hour")
+plotC2 
+
+plot_testC2 <- ggplot(data = subset(test, month(date_time) == 10), aes(x = date_time, y = temp_C)) + geom_point() + scale_x_datetime(date_labels = "%d %H", breaks = "12 hour")
+plot_testC2 
+
+Jul18 <- ggplot(data = subset(temp_C2_C3, month(date_time) == 7 & day(date_time) == 18), aes(x = date_time, y = temp_C)) + geom_point() + scale_x_datetime(date_labels = "%H:%m", breaks = "1 hour")
+Jul18 
+
+Jul18 <- ggplot(data = subset(temp_C2_C3, month(date_time) == 7 & day(date_time) == 18), aes(x = date_time, y = temp_C)) + geom_point() + scale_x_datetime(date_labels = "%H:%m", breaks = "1 hour")
+Jul18 
+
+###############################################
+
+#Combine the temperature data from all campaigns into one dataframe 
+
+C2C3 <-  test[, c("ID_unique", "temp_C")]
+
+colnames(air.temp) <- c("ID_unique", "temp_C")
+
+C1 <- air.temp
+
+#merge 
+
+air_temp_all <- bind_rows(C1, C2C3)
+
+#save as csv and load into GHG script
+
+write.csv(air_temp_all,"C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/ibutton_air_temp.csv") 
+
+
+
