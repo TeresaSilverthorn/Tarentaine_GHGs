@@ -1,4 +1,13 @@
-#### Script to extract air temperature data from the iButton dataloggers to get an average air temperature per GHG measurement to correct for in the gasflux calculation ####
+#### Script for iButton data for the Tarentaine catchment ####
+
+# 1. Extract air temperature data from the iButton dataloggers to get an average air temperature per GHG measurement to correct for in the gasflux calculation
+
+# 2. Calculate degree days for decomposition correction
+
+# 3. Calculate daily mean water temperature
+
+
+
 
 ## load necessary packages ##
 library(data.table)
@@ -9,6 +18,11 @@ library(survival)
 library(scales)
 library(tidyr)
 library(purrr)
+
+
+
+
+#### 1. Air temperature for GHG measurements ####
 
 #iButton data can be found here
 # C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons 
@@ -52,6 +66,7 @@ ibutton_master <- ibutton_master %>%
   mutate(file_name = replace(file_name, file_name == "76_5200000031CD6D21_072922.csv", "87_1D00000031FE6A21_072922.csv"))%>%
   mutate(file_name = replace(file_name, file_name == "81_4200000031FB2121_072922.csv", "84_A900000031FA3D21_072922.csv"))
 
+head(ibutton_master)
 
 ########################################################################
 
@@ -236,5 +251,114 @@ air_temp_all <- bind_rows(C1, C2C3)
 
 write.csv(air_temp_all,"C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/ibutton_air_temp.csv") 
 
+##########################################################################
+#### 2. Calculate degree days for decomposition correction ####
 
+#Run a loop for the air temp data but get the daily mean, starting with C1 where we had an iButton per site
+
+# Create an empty list to store data.frames for each site
+site_data_list <- list()
+
+for (i in 1:nrow(ibutton_master)) {
+  site <- ibutton_master$site[i]
+  file_name <- ibutton_master$file_name[i]
+  file_path <- paste("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/Air_iButtons/", file_name, sep = "")
+  
+  # Load the data from the file
+  Dat <- fread(file_path, header = TRUE)
+  colnames(Dat) <- c("DateTime", "Unit", "Temp_C")
+  Dat$date <- as.POSIXct(Dat$DateTime, format = "%d/%m/%y %I:%M:%S %p", tz = "Europe/Paris", origin = "1970-01-01")
+  Dat$file_name <- file_name
+  Dat <- Dat %>% drop_na()
+  
+  # Calculate the daily mean temperature for each site
+  daily_mean_temp <- Dat %>%
+    group_by(site, Date = as.Date(DateTime)) %>%
+    summarize(Avg_Temp_C = mean(Temp_C))
+  
+  # Append the daily_mean_temp to the site_data_list
+  site_data_list[[site]] <- daily_mean_temp
+}
+
+# The site_data_list contains separate data.frames for daily mean temperature of each site.
+# You can access the data for a specific site using site_data_list[[site_id]].
+# For example, to access the daily mean temperature for site 76:
+site_TA01_daily_mean <- site_data_list[["TA21"]]
+head(site_TA01_daily_mean)
+
+################################################################################
+#### 3. 
+
+#### Calculate the degree days for decompostion rate correction ####
+
+#First we need the mean of the max and min temperature for each day, for each site, using the iButtons on the leaf packs
+
+#Check in C3, the ID 20 iButton was noted for TA24 and TA13, check the data, as 24 should be colder
+
+Ib20 <- fread("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/Leaf_packs/Campaign 3/20_5F00000031EEA221_120122.csv")
+
+#rename columns
+colnames(Ib20) <- c("date_time", "unit", "temp_C")
+
+#change time format
+Ib20$date_time <- as.POSIXct(Ib20$date_time, format = "%d/%m/%y %I:%M:%S %p")
+
+#plot
+Ib20_C3 <- ggplot(data = subset(Ib20, month(date_time) == 10  &  day(date_time) >=15), aes(x = date_time, y = temp_C)) + geom_point() + scale_x_datetime(date_labels = "%m/%d", breaks = "1 day")
+Ib20_C3
+
+#load in ID # 02
+Ib02 <- fread("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/Leaf_packs/Campaign 3/02_E900000031CAED21_120122.csv")
+
+#rename columns
+colnames(Ib02) <- c("date_time", "unit", "temp_C")
+
+#change time format
+Ib02$date_time <- as.POSIXct(Ib02$date_time, format = "%d/%m/%y %I:%M:%S %p")
+
+#plot
+Ib02_C3 <- ggplot(data = subset(Ib02, month(date_time) == 10 &  day(date_time) >=15), aes(x = date_time, y = temp_C)) + geom_point() + scale_x_datetime(date_labels = "%m/%d", breaks = "1 day")
+Ib02_C3
+
+#What is the average temp
+mean_temp02 <- mean(subset(Ib02, month(date_time) == 10 & day(date_time) >= 15)$temp_C, na.rm = TRUE)
+mean_temp20 <- mean(subset(Ib20, month(date_time) == 10 & day(date_time) >= 15)$temp_C, na.rm = TRUE)
+
+max_temp02 <- max(subset(Ib02, month(date_time) == 10 & day(date_time) >= 15)$temp_C, na.rm = TRUE)
+memax_temp20 <- max(subset(Ib20, month(date_time) == 10 & day(date_time) >= 15)$temp_C, na.rm = TRUE)
+
+#20 is on average a bit higher thus TA13, and 02 is more likely TA24
+
+
+#####################################################
+
+
+#### Load in the iButton master file for the leaf pack water iButtons ####
+
+# ibutton information (file name, type, site, ibutton ID) can be found here: 
+ibutton_master <- read.csv("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/Leaf_packs/Leaf_pack_iButton_master_sheet.csv", header=T)
+
+head(ibutton_master)
+
+#Add a new column for the file name
+ibutton_master <- ibutton_master %>%
+  rename(Device_address = File_name)   %>%
+  mutate(
+    file_ending = case_when(
+      Campaign == 1 ~ "_071222.csv",
+      Campaign == 2 ~ "_090222.csv",
+      Campaign == 3 ~ "_120122.csv",
+      TRUE ~ ".csv"   # Change the ending depending on the campaign
+    ),
+    file_name = paste0(iButton_ID, "_", Device_address, "_", file_ending)
+  ) %>%
+  select(file_name, everything()) 
+
+
+str(ibutton_master)  #20 obs. of  14 variables
+
+########################################################
+
+#run loop to find degree days, based on the GHG loop
+# degree days are cumulative daily mean temperature
 
