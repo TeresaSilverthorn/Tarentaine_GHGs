@@ -254,10 +254,14 @@ write.csv(air_temp_all,"C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Docu
 ##########################################################################
 #### 2. Calculate degree days for decomposition correction ####
 
-#Run a loop for the air temp data but get the daily mean, starting with C1 where we had an iButton per site
+#### Run a loop for the air temp data but get the daily mean, starting with C1 where we had an iButton per site ####
 
-# Create an empty list to store data.frames for each site
-site_data_list <- list()
+# Initialize an empty data frame
+all_data <- data.frame(DateTime = character(),
+                         Unit = character(),
+                         Temp_C = numeric(),
+                         site = character(),
+                         stringsAsFactors = FALSE)
 
 for (i in 1:nrow(ibutton_master)) {
   site <- ibutton_master$site[i]
@@ -267,33 +271,57 @@ for (i in 1:nrow(ibutton_master)) {
   # Load the data from the file
   Dat <- fread(file_path, header = TRUE)
   colnames(Dat) <- c("DateTime", "Unit", "Temp_C")
-  Dat$date <- as.POSIXct(Dat$DateTime, format = "%d/%m/%y %I:%M:%S %p", tz = "Europe/Paris", origin = "1970-01-01")
+  Dat$DateTime <- as.POSIXct(Dat$DateTime, format = "%d/%m/%y %I:%M:%S %p", tz = "Europe/Paris", origin = "1970-01-01")
   Dat$file_name <- file_name
+  
+  # Add the 'site' column and fill it with the site value
+  Dat$site <- site
+  
   Dat <- Dat %>% drop_na()
   
-  # Calculate the daily mean temperature for each site
-  daily_mean_temp <- Dat %>%
-    group_by(site, Date = as.Date(DateTime)) %>%
-    summarize(Avg_Temp_C = mean(Temp_C))
-  
-  # Append the daily_mean_temp to the site_data_list
-  site_data_list[[site]] <- daily_mean_temp
+  # Append the data to the all_data data frame
+  all_data <- rbind(all_data, Dat)
 }
 
-# The site_data_list contains separate data.frames for daily mean temperature of each site.
-# You can access the data for a specific site using site_data_list[[site_id]].
-# For example, to access the daily mean temperature for site 76:
-site_TA01_daily_mean <- site_data_list[["TA21"]]
-head(site_TA01_daily_mean)
+str(all_data) #29411 obs. of  6 variables
+
+levels(as.factor(all_data$site)) #All sites except TA02R
+
+# Now calculate the daily average temperature for each Site
+
+daily_ave_air_temp_C1 <- all_data %>%
+  group_by(site, Date = as.Date(DateTime)) %>%
+  summarise(DailyMeanTemp_C = mean(Temp_C, na.rm = TRUE))
+
+# Plot to check
+
+# Convert the 'Date' column to POSIXct format for plotting
+daily_ave_air_temp_C1$Date <- as.POSIXct(daily_ave_air_temp$Date, format = "%Y-%m-%d")
+
+TA01 <- ggplot(data = subset(daily_ave_air_temp_C1, site=="TA01"), aes(x = Date, y = DailyMeanTemp_C)) + geom_point() + scale_x_datetime(date_labels = "%m/%d", breaks = "5 days")
+TA01
+
+TA05 <- ggplot(data = subset(daily_ave_air_temp_C1, site=="TA05"), aes(x = Date, y = DailyMeanTemp_C)) + geom_point() + scale_x_datetime(date_labels = "%m/%d", breaks = "5 days")
+TA05
+
+TA24 <- ggplot(data = subset(daily_ave_air_temp_C1, site=="TA24"), aes(x = Date, y = DailyMeanTemp_C)) + geom_point() + scale_x_datetime(date_labels = "%m/%d", breaks = "5 days")
+TA24
+
+#Save as .csv
+write.csv(daily_ave_air_temp_C1, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/daily_ave_air_temp_C1.csv")
+
+
+#Looks good!
+
+# Now calculate the daily average air temp for C2 and C3, where we only had 1 air temperature iButton so we can't really see site differences, check weather stations maybe
+
+
 
 ################################################################################
-#### 3. 
 
-#### Calculate the degree days for decompostion rate correction ####
+#### 3. Calculate the average daily water temperature ####
 
-#First we need the mean of the max and min temperature for each day, for each site, using the iButtons on the leaf packs
-
-#Check in C3, the ID 20 iButton was noted for TA24 and TA13, check the data, as 24 should be colder
+#### Check in C3, the ID 20 iButton was noted for TA24 and TA13, check the data, as 24 should be colder ####
 
 Ib20 <- fread("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/Leaf_packs/Campaign 3/20_5F00000031EEA221_120122.csv")
 
@@ -336,29 +364,76 @@ memax_temp20 <- max(subset(Ib20, month(date_time) == 10 & day(date_time) >= 15)$
 #### Load in the iButton master file for the leaf pack water iButtons ####
 
 # ibutton information (file name, type, site, ibutton ID) can be found here: 
-ibutton_master <- read.csv("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/Leaf_packs/Leaf_pack_iButton_master_sheet.csv", header=T)
+ibutton_master2 <- read.csv("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/Leaf_packs/Leaf_pack_iButton_master_sheet.csv", header=T)
 
-head(ibutton_master)
+head(ibutton_master2)
 
 #Add a new column for the file name
-ibutton_master <- ibutton_master %>%
+ibutton_master2 <- ibutton_master2 %>%
   rename(Device_address = File_name)   %>%
   mutate(
+    iButton_ID = ifelse(nchar(iButton_ID) == 1, paste0("0", iButton_ID), iButton_ID),  #if single digit add a 0 in front of it
     file_ending = case_when(
-      Campaign == 1 ~ "_071222.csv",
-      Campaign == 2 ~ "_090222.csv",
-      Campaign == 3 ~ "_120122.csv",
+      Campaign == 1 ~ "071222.csv",
+      Campaign == 2 ~ "090222.csv",
+      Campaign == 3 ~ "120122.csv",
       TRUE ~ ".csv"   # Change the ending depending on the campaign
     ),
     file_name = paste0(iButton_ID, "_", Device_address, "_", file_ending)
   ) %>%
-  select(file_name, everything()) 
+  select(file_name, everything()) %>%
+  rename(site = Site) #rename
 
 
-str(ibutton_master)  #20 obs. of  14 variables
+str(ibutton_master2)  #58 obs. of  6 variables
+head(ibutton_master2)
 
 ########################################################
 
-#run loop to find degree days, based on the GHG loop
-# degree days are cumulative daily mean temperature
+##### Run loop to find the mean daily water temperature per site ####
+
+#x <- subset(ibutton_master2, file_name=="05_ED00000031EC9621_071222.csv") #test with a subset first
+
+all_data_water <- data.frame(DateTime = character(),
+                       Unit = character(),
+                       Temp_C = numeric(),
+                       site = character(),
+                       stringsAsFactors = FALSE)
+
+for (i in 1:nrow(ibutton_master2)) {
+  site <- ibutton_master2$site[i]
+  file_name <- ibutton_master2$file_name[i]
+  file_path <- paste("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/Leaf_packs/All/", file_name, sep = "")
+  
+  # Load the data from the file
+  Dat <- fread(file_path, header = TRUE)
+  colnames(Dat) <- c("DateTime", "Unit", "Temp_C")
+  Dat$DateTime <- as.POSIXct(Dat$DateTime, format = "%d/%m/%y %I:%M:%S %p", tz = "Europe/Paris", origin = "1970-01-01")
+  Dat$file_name <- file_name 
+  
+  # Add the 'site' column and fill it with the site value
+  Dat$site <- site
+  
+  Dat <- Dat %>% drop_na()
+  
+  # Append the data to the all_data data frame
+  all_data_water <- rbind(all_data_water, Dat)
+}
+
+str(all_data_water) #68746 obs. of  5 variables
+
+
+levels(as.factor(all_data_water$site)) #all sites
+
+
+# Now calculate the daily average temperature for each Site
+
+daily_mean_water <- all_data_water %>%
+  group_by(site, Date = as.Date(DateTime)) %>%
+  summarise(DailyMeanWaterTemp_C = mean(Temp_C, na.rm = TRUE))
+
+# Plot to check
+
+# Convert the 'Date' column to POSIXct format for plotting
+daily_ave_air_temp_C1$Date <- as.POSIXct(daily_ave_air_temp$Date, format = "%Y-%m-%d")
 
