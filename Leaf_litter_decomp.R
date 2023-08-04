@@ -8,7 +8,7 @@ library(dplyr)
 
 # Input the leaf pack mass data
 
-lp <- read.csv ("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Leaf packs/Leaf_pack_weights_Tarentaine_all_campaigns_one_file.csv")
+lp <- read.csv ("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Leaf_packs/Leaf_pack_weights_Tarentaine_all_campaigns_one_file.csv")
 
 str(lp) #363 obs. of  15 variables
 
@@ -46,7 +46,7 @@ lp$final_AFDM <- lp$Final_dry_weight_g * (lp$OM_percent/100)
 
 #Need the OM percentage of the initial leaves (can use the handling loss bags)
 
-Initial <- read.csv("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Leaf packs/Initial_leaves_ashed.csv")
+Initial <- read.csv("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Leaf_packs/Initial_leaves_ashed.csv")
 
 str(Initial)
 
@@ -81,9 +81,10 @@ lp$LML_perday <- lp$LML / lp$Duration_days
 #Get rid of the LML percentages which are negatives, super weird, and not sure where this comes form, type or a rock in the bag?
 lp_site_means <- lp %>%
   mutate(LML = ifelse(LML < 0, NA, LML))  %>%
-  mutate(LML_perday = ifelse(LML_perday < 0, NA, LML))  %>%
-  group_by(Campaign, Site) %>%
-  mutate(mean_LML = mean(LML, na.rm = TRUE))
+  mutate(LML_perday = ifelse(LML_perday < 0, NA, LML))  %>%  #remove the 3 negatives, data entry error
+  filter(Site != "Handling loss" & Site != "") %>%   #remove the handling loss and blank site rows
+  group_by(Campaign, Site, Mesh_size) %>%   #group
+  summarize(LML_perday = mean(LML_perday, na.rm = TRUE))   #get mean per the 3 replicates
 
 #plot
 lp_plot <- ggplot(lp_site_means, aes(x=Site, y=LML_perday, fill=as.factor(Campaign))) + 
@@ -91,7 +92,9 @@ lp_plot <- ggplot(lp_site_means, aes(x=Site, y=LML_perday, fill=as.factor(Campai
 lp_plot
 
 
+#### Save as .csv ####
 
 
+write.csv(lp_site_means, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Leaf_packs/Leaf_pack_decomposition.csv")
 
 
