@@ -18,7 +18,8 @@ library(survival)
 library(scales)
 library(tidyr)
 library(purrr)
-
+library(ggpubr)
+library(broom)
 
 
 
@@ -296,7 +297,7 @@ daily_ave_air_temp_C1 <- all_data %>%
 # Plot to check
 
 # Convert the 'Date' column to POSIXct format for plotting
-daily_ave_air_temp_C1$Date <- as.POSIXct(daily_ave_air_temp$Date, format = "%Y-%m-%d")
+daily_ave_air_temp_C1$Date <- as.POSIXct(daily_ave_air_temp_C1$Date, format = "%Y-%m-%d")
 
 TA01 <- ggplot(data = subset(daily_ave_air_temp_C1, site=="TA01"), aes(x = Date, y = DailyMeanTemp_C)) + geom_point() + scale_x_datetime(date_labels = "%m/%d", breaks = "5 days")
 TA01
@@ -435,5 +436,67 @@ daily_mean_water <- all_data_water %>%
 # Plot to check
 
 # Convert the 'Date' column to POSIXct format for plotting
-daily_ave_air_temp_C1$Date <- as.POSIXct(daily_ave_air_temp$Date, format = "%Y-%m-%d")
+daily_mean_water$Date <- as.POSIXct(daily_mean_water$Date, format = "%Y-%m-%d")
+
+TA02 <- ggplot(data = subset(daily_mean_water, site=="TA02"), aes(x = Date, y = DailyMeanWaterTemp_C)) + geom_point() + scale_x_datetime(date_labels = "%m/%d", breaks = "2 days")
+TA02
+
+TA42 <- ggplot(data = subset(daily_mean_water, site=="TA24"), aes(x = Date, y = DailyMeanWaterTemp_C)) + geom_point() + scale_x_datetime(date_labels = "%m/%d", breaks = "5 days")
+TA42
+
+
+##########################################################################
+
+#### 4. Determine the relationship between daily mean air and water temperature for C1, by site. In order to extrapolate from the water temperature for C2 and C3 ####
+
+#Merge and and water temperature by site and date
+
+merged_data <- left_join(daily_ave_air_temp_C1, daily_mean_water, by = c("site", "Date"))  
+   
+merged_data_sub <- merged_data %>%
+  ungroup() %>%
+  filter(Date >= as.POSIXct("2022-05-30") & Date <= as.POSIXct("2022-06-19"))  #filter the date from the start of the campaign til the day before you collected the leaf packs
+
+merged_data_sub <- as.data.frame(merged_data_sub) #make dataframe
+
+str(merged_data_sub) #400 obs
+
+#Drop certain rows where the iButton was not in the site yet
+merged_data_sub <- merged_data_sub %>%
+  filter(!(Date == as.Date("2022-05-30") & !(site %in% c("TA01", "TA02")))) %>%
+  filter(!(Date == as.Date("2022-05-31") & !(site %in% c("TA01", "TA02", "TA03", "TA04", "TA05", "TA06")))) %>%
+  filter(!(Date == as.Date("2022-06-01") & !(site %in% c("TA01", "TA02", "TA03", "TA04", "TA05", "TA06", "TA07", "TA08", "TA09", "TA10", "T011" )))) %>%
+  filter(!(Date == as.Date("2022-06-02") & !(site %in% c("TA01", "TA02", "TA03", "TA04", "TA05", "TA06", "TA07", "TA08", "TA09", "TA10", "T011", "TA14", "TA15", "TA22", "TA24", "TA12" ))))
+
+str(merged_data_sub) #353 obs
+
+# Start by plotting the general relationship
+all_temp <- ggplot(data=merged_data_sub, aes(x=DailyMeanWaterTemp_C, y=DailyMeanTemp_C) ) + geom_point() + geom_smooth(method = "lm", se=FALSE, color="black", formula = y ~ x)  + stat_regline_equation(label.y = 29) + stat_cor(label.y = 27.5)
+all_temp #R is 0.83 and significant so this is a strong relationship 
+
+all_temp2 <- ggplot(data=merged_data_sub, aes(x=DailyMeanWaterTemp_C, y=DailyMeanTemp_C, colour=site) ) + geom_point() 
+all_temp2
+
+# Fit site-specific linear regressions and store coefficients in a new dataframe
+site_coefficients <- merged_data_sub %>%
+  group_by(site) %>%
+  do(tidy(lm(DailyMeanTemp_C ~ DailyMeanWaterTemp_C, data = .))) %>%
+  select(site, term, estimate) %>%
+  spread(term, estimate) %>%
+  rename(site = site, intercept = `(Intercept)`, slope = DailyMeanWaterTemp_C)
+
+# Use site-specific coefficients to predict new air temperature
+air_temp_predicted <- merged_data %>%
+  left_join(site_coefficients, by = "site") %>%
+  mutate(predicted_air_temp = intercept + slope * DailyMeanWaterTemp_C)
+
+#plot
+
+pred_tempC2 <- ggplot(data = air_temp_predicted[which(air_temp_predicted$Date < "2022-07-22" & air_temp_predicted$Date > "2022-07-18"),], aes(x = Date, y = predicted_air_temp, colour=site)) +   geom_point() 
+pred_tempC2
+ # The predictions do not make sense, some as high as 60 degrees!
+
+
+
+
 
