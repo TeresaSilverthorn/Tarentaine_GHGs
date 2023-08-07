@@ -89,34 +89,29 @@ OM_flux <- subset(OM, type=="flux")
 
 OM_flux <- merge(ancil_dat_sub, OM_flux, by = c("site", "campaign"))
 
-# Calculate OM flux (g/m2/h)
+
+# Calculate OM flux 
+
+#Need to check the validity of this, but I think: 
+# OM flux (g/m3/h) = (AFDM (g) / area (m2) * velocity (m/h) ) * incubation time (h) 
 
 OM_flux <- OM_flux %>%
-  mutate(OM_flux_g_m2_min =  AFDM / (No_samples_in_reach * 0.086125)  * ((mean_velocity_m_s * 60) / OM_flux_net_time_mins) ) %>%
-  mutate(OM_flux_kg_m2_h =  (AFDM*0.001) / (No_samples_in_reach * 0.086125)  * ((mean_velocity_m_s / 3600) / ( OM_flux_net_time_mins/60)) )
+  mutate(OM_flux_g_m3_h =   ( AFDM / ( (No_samples_in_reach * 0.086125)  * (mean_velocity_m_s * 3600) ) * (OM_flux_net_time_mins/60) ) ) %>%
+  mutate(OM_flux_g_m3_h = replace(OM_flux_g_m3_h, is.infinite(OM_flux_g_m3_h), NA))
 
-# Calculate OM flux (g/min)
 
-OM_flux <- OM_flux %>%
-  mutate(OM_flux_g_s =  AFDM / (No_samples_in_reach * 0.086125)  * (discharge_m3_s / (OM_flux_net_time_mins*60) )  )%>%
-  mutate(OM_flux_g_min =  AFDM / (No_samples_in_reach * 0.086125)  * ((discharge_m3_s*60) / OM_flux_net_time_mins*60)  )%>%
-  mutate(OM_flux_kg_h =  (AFDM*0.001) / (No_samples_in_reach * 0.086125)  * ((discharge_m3_s / 3600) / OM_flux_net_time_mins/60) )
- 
+#Replace Inf with NAs 
 
 #####################################################
 
 
 #### plot ####
 
-flux <- ggplot(data=OM_flux, aes(x=as.factor(site), y=OM_flux_g_m2_min, fill=as.factor(campaign))) +
+flux <- ggplot(data=OM_flux, aes(x=as.factor(site), y=OM_flux_g_m3_h, fill=as.factor(campaign))) +
   geom_bar(stat="identity", position=position_dodge())+
   scale_fill_brewer(palette="Paired")+   theme_minimal()
 flux
 
-logflux <- ggplot(data=OM_flux, aes(x=as.factor(site), y=OM_flux_g_m2_min+1, fill=as.factor(campaign))) +
-  geom_bar(stat="identity", position=position_dodge())+
-  scale_fill_brewer(palette="Paired")+  scale_y_log10()  +  theme_minimal()
-logflux
 
 stock <- ggplot(data=OM_stock, aes(x=as.factor(site), y=OM_stock_g_m2, fill=as.factor(campaign))) +
   geom_bar(stat="identity", position=position_dodge())+
