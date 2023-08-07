@@ -9,7 +9,7 @@ library(ggplot2)
 
 #### 1. Load ancillary data ####
 
-ancil_dat <- read.csv ("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Ancillary data/Data_entry_Tarentaine_2022_2023-08-04.csv", header=T) #Make sure it's the latest version from the Google Drive
+ancil_dat <- read.csv ("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Ancillary data/Data_entry_Tarentaine_2022_2023-08-07.csv", header=T) #Make sure it's the latest version from the Google Drive
 
 str(ancil_dat) #327 obs of 42 vars
 
@@ -89,4 +89,98 @@ str(water_temp) #2824 obs. of  4 variables
 
 
 ###################################################################################
+
+#### Merge the dataframes together ####
+
+#Rename columns to match
+decomp <- decomp %>%
+  rename(site = Site,
+       campaign = Campaign)
+
+# Join multiple dataframes
+df_list = list(ancil_dat, decomp, OM)  #join the ones that have site and campaign first
+dat <- df_list %>%
+  reduce(full_join, by = c("campaign", "site")) 
+
+#Add an ID_unique column to dat
+
+dat <- dat  %>%
+  mutate(ID_unique = paste(date, site, transect, sep = "_"))%>%
+  select(ID_unique, everything())
+
+#Now join the ones with ID_unique
+df_list = list(dat, GHG, air_temp)  
+dat <- df_list %>%
+  reduce(full_join, by = c("ID_unique")) 
+
+#Now join water temp by date and site
+
+water_temp <- water_temp %>%
+  rename(date = Date)  #rename
+
+df_list = list(dat, water_temp) 
+dat <- df_list %>%
+  reduce(left_join, by = c("site", "date"))  #use a left join here
+
+
+#remove unnecessary columns
+
+str(dat)
+
+dat <- dat %>%
+  select(-X.x, -X.y, -Notes) 
+
+#########################################################################
+
+#### Fill any missing data ####
+
+## add the substrate type to all of the campaigns
+
+columns_to_fill <- c("X._bedrock", "X._boulder", "X._cobble", "X._pebble_gravel", "X._fine_substrate")
+
+# Fill missing values in specified columns based on site
+dat <- dat %>%
+  group_by(site) %>%
+  fill(!!!syms(columns_to_fill), .direction = "downup") %>%
+  ungroup()
+
+#Need to fill in values for TA02 and TA06, based on photos
+#TA02: 70% boulder, 20% cobble, 10% gravel
+#TA06: 15% boulders, 65% cobble, 15% gravel, 5% fine.
+
+fill_values_TA02 <- data.frame(
+  site = "TA02",
+  X._bedrock= 0,
+  X._boulder = 70,
+  X._cobble = 20,
+  X._pebble_gravel = 10, 
+  X._fine_substrate = 0 )
+
+fill_values_TA06 <- data.frame(
+  site = "TA06",
+  X._bedrock = 0,
+  X._boulder = 15,
+  X._cobble = 65,
+  X._pebble_gravel = 15,
+  X._fine_substrate = 5 )
+
+# Combine fill values for both sites
+all_fill_values <- bind_rows(fill_values_TA02, fill_values_TA06)
+
+# Replace "TA02" and "TA06" rows with fill values
+dat <- dat %>%
+  left_join(all_fill_values, by = "site") %>%
+  mutate(
+    X._bedrock = if_else(is.na(X._bedrock.y), X._bedrock.x, X._bedrock.y),
+    X._boulder = if_else(is.na(X._boulder.y), X._boulder.x, X._boulder.y),
+    X._cobble = if_else(is.na(X._cobble.y), X._cobble.x, X._cobble.y),
+    X._pebble_gravel = if_else(is.na(X._pebble_gravel.y), X._pebble_gravel.x, X._pebble_gravel.y),
+    X._fine_substrate = if_else(is.na(X._fine_substrate.y), X._fine_substrate.x, X._fine_substrate.y)
+  ) %>%
+  select(-ends_with(".x"), -ends_with(".y")) %>%
+  arrange(campaign, site, transect)
+
+
+
+#Look into average depth and velocity, why NaN?
 
