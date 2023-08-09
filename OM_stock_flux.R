@@ -92,22 +92,22 @@ OM_flux <- merge(ancil_dat_sub, OM_flux, by = c("site", "campaign"))
 
 # Calculate OM flux 
 
-#Need to check the validity of this, but I think: 
-# OM flux (g/m3/h) = (AFDM (g) / area (m2) * velocity (m/h) ) * incubation time (h) 
+#With the help of Jerome leCoz, this equation is: 
+# Flux (g/m2/s) = AFDM (g) / (area (m2) * time (s)  ) 
 
 OM_flux <- OM_flux %>%
-  mutate(OM_flux_g_m3_h =   ( AFDM / ( (No_samples_in_reach * 0.086125)  * (mean_velocity_m_s * 3600) ) * (OM_flux_net_time_mins/60) ) ) %>%
-  mutate(OM_flux_g_m3_h = replace(OM_flux_g_m3_h, is.infinite(OM_flux_g_m3_h), NA))
+  mutate(OM_flux_g_m2_s = AFDM/ ((No_samples_in_reach*0.086125) * (OM_flux_net_time_mins*60))    )
 
-
-#Replace Inf with NAs 
+# Calculate OM water column concentration, accounting for the discharge 
+#F (g/s) = OM_flux_g_m2_s * the surface area of the transect m2 (or alternatively by the width of the transect)
+#Then divide that value by the discharge, C (g/m3) = F/Q
 
 #####################################################
 
 
 #### plot ####
 
-flux <- ggplot(data=OM_flux, aes(x=as.factor(site), y=OM_flux_g_m3_h, fill=as.factor(campaign))) +
+flux <- ggplot(data=OM_flux, aes(x=as.factor(site), y=OM_flux_g_m2_s, fill=as.factor(campaign))) +
   geom_bar(stat="identity", position=position_dodge())+
   scale_fill_brewer(palette="Paired")+   theme_minimal()
 flux
@@ -129,7 +129,7 @@ OM_stock_sub <- OM_stock %>%
 str(OM_stock_sub) #56 obs of 3 vars
 
 OM_flux_sub <- OM_flux %>%
-  select(campaign, site, OM_flux_g_m2_min)
+  select(campaign, site, OM_flux_g_m2_s)
 
 str(OM_flux_sub) #56 obs. of  3 variables
 
