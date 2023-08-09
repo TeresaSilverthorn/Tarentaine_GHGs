@@ -6,8 +6,10 @@ library(tidyr)
 library(ggplot2)
 library(corrplot)
 library(RColorBrewer)
+library(purrr)
+library(sf)
 
-#Load and merge the 1. ancillary data, 2. GHG flux data, 3. OM stock and flux data, 4. leaf litter decomposition data, 5. daily temperature data, 6. Sediment OM content. Check for quality control 
+#Load and merge the 1. ancillary data, 2. GHG flux data, 3. OM stock and flux data, 4. leaf litter decomposition data, 5. daily temperature data, 6. Sediment OM content. 7. Latitude and Longitude. Check for quality control 
 
 #### 1. Load ancillary data ####
 
@@ -93,6 +95,10 @@ str(water_temp) #2824 obs. of  4 variables
 
 sed_OM <- read.csv("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Sediment/Sediment_OM_Tarentaine.csv") 
 
+#subset only the useful columns
+sed_OM <- sed_OM %>%
+  select(sed_OM_percent, Site, Campaign)
+
 #Remove the weird outlying value of sed_OM_percent "14.5095801"
 
 sed_OM <- sed_OM %>%
@@ -102,6 +108,23 @@ sed_OM <- sed_OM %>%
 sed_OM <- sed_OM %>%
   rename(site = Site,
          campaign = Campaign)
+
+
+############################################################################
+#### 7. add latitude and longitude ####
+
+coords <- read.csv("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Site selection/GPS_coordinates_site_selection_2022-08-04.csv")
+
+# subset useful columns
+
+coords <- coords %>%
+  select(Site, Lat, Lon)  %>%
+  rename(site=Site, 
+         lat=Lat, 
+         lon=Lon)
+  
+  
+############################################################################
 
 #### Merge the dataframes together ####
 
@@ -135,6 +158,9 @@ df_list = list(dat, water_temp)
 dat <- df_list %>%
   reduce(left_join, by = c("site", "date"))  #use a left join here
 
+#merge coords just by site
+dat <- dat %>%
+  left_join(coords, by = "site")
 
 #remove unnecessary columns
 
@@ -196,6 +222,8 @@ dat <- dat %>%
 ###############################################################################
 
 #### Save as .csv ####
+
+str(dat) #327 × 32 variables
 
 write.csv(dat, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/dat.csv")
 
@@ -320,8 +348,72 @@ LML_coarse
 OM_stock <-  ggplot(dat, aes(wetted_width_m, OM_stock_g_m2)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) +   facet_wrap(~ season, ncol = 1)  # Facet by campaign
 OM_stock
 
-OM_flux <-  ggplot(dat, aes(wetted_width_m, OM_flux_g_m3_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) +   facet_wrap(~ season, ncol = 1)  # Facet by campaign
+OM_flux <-  ggplot(dat, aes(wetted_width_m, OM_flux_g_m2_s)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) +   facet_wrap(~ season, ncol = 1)  # Facet by campaign
 OM_flux
 
 
+############# Make network maps with variables ###############
+#### Script for making Konza STIC map
+
+# load in shapefile
+waterways <- st_read("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Site selection/waterways_clipped/tarentaine.shp")
+
+catchment_area <- st_read("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/ArcMap/05_Adour-Garonne_BassinVersantTopographique.shp/05_Adour-Garonne_BassinVersantTopographique.shp")
+
+#subset sub catchment
+# IDs to filter
+selected_ids <- c("05B0000002150458641", "05B0000002150459669", "05B0000002150460843", "05B0000002150460858", "05B0000002150456990")
+
+# Filter catchment areas based on selected IDs
+tarentaine_catch <- catchment_area[catchment_area$CdOH %in% selected_ids, ]
+
+tarentaine <- st_intersection(waterways, tarentaine_catch)
+
+# Subset
+C1 <- subset(dat, campaign==1)
+site_locations <- st_as_sf(C1, coords = c("lon", "lat"), crs = 4326)
+
+#plot 
+OMspring <-ggplot() + 
+  geom_sf(data = tarentaine_catch, fill = "lightblue", alpha = 0.3)+
+  geom_sf(data = tarentaine) + 
+  geom_sf(data = site_locations, aes(fill = OM_stock_g_m2, shape=flow_state),  size = 3, alpha = 0.3, colour="black") +
+  scale_shape_manual(values = c(21, 24)) +
+  scale_fill_viridis_c(option="plasma", na.value="grey40", oob=scales::squish, direction = -1) +
+  theme_classic()+ ggtitle("OM stock Spring") + xlab("Longitude") + ylab("Latitude") +  theme(plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 8), legend.position ="bottom",legend.text = element_text(size=8)) 
+OMspring
+
+# Subset C2
+C2 <- subset(dat, campaign==2)
+sites_C2 <- st_as_sf(C2, coords = c("lon", "lat"), crs = 4326)http://127.0.0.1:38405/graphics/plot_zoom_png?width=1318&height=740
+
+#plot 
+OMsummer <-ggplot() + 
+  geom_sf(data = tarentaine_catch, fill = "lightblue", alpha = 0.3)+
+  geom_sf(data = tarentaine) + 
+  geom_sf(data = sites_C2, aes(fill = OM_stock_g_m2, shape=flow_state),  size = 3, alpha = 0.3, colour="black") +
+  scale_shape_manual(values = c(21, 24)) +
+  scale_fill_viridis_c(option="plasma", na.value="grey40", oob=scales::squish, direction = -1, trans = "log") +
+  theme_classic()+ ggtitle("OM stock Summer") + xlab("Longitude") + ylab("Latitude") +  theme(plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 8), legend.position ="bottom",legend.text = element_text(size=8)) 
+OMsummer
+
+# Subset C3
+C3 <- subset(dat, campaign==3)
+site_locations <- st_as_sf(C3, coords = c("lon", "lat"), crs = 4326)
+
+#plot 
+OMspring <-ggplot() + 
+  geom_sf(data = tarentaine_catch, fill = "lightblue", alpha = 0.3)+
+  geom_sf(data = tarentaine) + 
+  geom_sf(data = site_locations, aes(fill = OM_stock_g_m2, shape=flow_state),  size = 4, alpha = 0.3, colour="black") +
+  scale_shape_manual(values = c(21, 24)) +
+  scale_fill_viridis_c(option="plasma", na.value="grey40", oob=scales::squish, direction = -1) +
+  theme_classic()+ ggtitle("OM stock Fall") + xlab("Longitude") + ylab("Latitude") +  theme(plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 8), legend.position ="bottom",legend.text = element_text(size=8)) 
+OMspring
+
+##############################################################################
+
+#### Structural equation modelling ####
+
+#assumption is that all variables are continuous and normally distributed.
 
