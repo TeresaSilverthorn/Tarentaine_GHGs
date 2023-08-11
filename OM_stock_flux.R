@@ -135,7 +135,7 @@ str(OM_flux_sub) #56 obs. of  3 variables
 
 OM_stock_flux <- merge(OM_stock_sub, OM_flux_sub, by = c("campaign", "site"))
 
-str(OM_stock_flux) #56 obs of 4 vars
+str(OM_stock_flux) #57 obs of 4 vars
 
 #Save as csv
 
