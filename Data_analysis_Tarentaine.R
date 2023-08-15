@@ -11,6 +11,19 @@ library(sf)
 library(randomForest)
 library(caret) #for making predictions with RF
 library(caTools)
+library(ggpubr)
+library(olsrr) #for VIF and tolerance
+library(lme4)
+library(lmerTest)
+library(car)
+library(MuMIn)
+library(cAIC4) #step AIC
+library(FactoMineR) #for PCA
+library(factoextra) #for visualizing CPA
+
+# Set wd for figures
+
+setwd("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Tarentaine_GHGs/Figures")
 
 #Load and merge the 1. ancillary data, 2. GHG flux data, 3. OM stock and flux data, 4. leaf litter decomposition data, 5. daily temperature data, 6. Sediment OM content. 7. Latitude and Longitude. 8. Import network distances. Check for quality control 
 
@@ -354,6 +367,12 @@ dat <- dat %>%
 
 dat$season<- as.factor(dat$season)
 
+dat <- dat %>%
+  mutate(position = case_when(
+    dist_ds_dam_km < 0 ~ "upstream",
+    dist_ds_dam_km > 0 ~ "downstream",
+  ))
+
 #### Save as .csv ####
 
 str(dat) #327 × 32 variables
@@ -366,7 +385,7 @@ write.csv(dat, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fi
 
 dat_means <- dat %>% 
   dplyr::select(-ID_unique, -transect, -start_time, -end_time) %>% # use select with -var_name to eliminate columns 
-  dplyr::group_by(site, campaign, date, flow_state, season) %>% # we group by the two values
+  dplyr::group_by(site, campaign, date, flow_state, season, position) %>% # we group by the two values
   dplyr::summarise(across(.cols = everything(), .fns = mean, .names = "{.col}"))
    
 dat_means <- as.data.frame(dat_means)
@@ -392,6 +411,13 @@ corrplot(M, type="upper", order="hclust",
          tl.cex = 0.7, tl.srt = 45,
          col=brewer.pal(n=8, name="RdYlBu"))
 
+#Another option with the correlation coefficients
+corrplot(cor(dat_numeric), method = "number", tl.cex = 0.7, tl.srt = 45)
+
+#Hard to see, so in table form
+correlation_matrix <- cor(dat_numeric)
+correlation_df <- as.data.frame(as.table(correlation_matrix))
+
 
 ## CO2 by site and campaign 
 CO2_site<- ggplot(data=dat, aes(x=as.factor(site), y=CO2_C_mg_m2_h, fill=as.factor(season))) +
@@ -414,39 +440,64 @@ CH4_masl
 CO2_distance <- ggplot(dat, aes(Distance_to_source_km, CO2_C_mg_m2_h)) + geom_point(aes(colour=dist_ds_dam_km), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CO2_distance
 
-dat <- dat %>%
-  mutate(position = case_when(
-    dist_ds_dam_km < 0 ~ "upstream",
-    dist_ds_dam_km > 0 ~ "downstream",
-  ))
 
-CO2_distancebyposition <- ggplot(subset(dat_means, CO2_C_mg_m2_h <= 300), aes(Distance_to_source_km, CO2_C_mg_m2_h)) + geom_point(aes(colour=position), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = FALSE, aes(group = position, colour = position), size = 1)
-CO2_distancebyposition
+#relevel
+dat$position <- factor(dat$position, levels = c("upstream", "downstream"))
 
-CO2_distancebyposition <- ggplot(dat, aes(dist_ds_dam_km, CO2_C_mg_m2_h)) + geom_point(aes(colour=position), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1) + ylim(-10, 500)  + scale_colour_manual(values=c("#f7921e", "#91278e"))
+CO2_distancebyposition <- ggplot(dat, aes(Distance_to_source_km, CO2_C_mg_m2_h)) + geom_point(aes(colour=position), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1) + ylim(-10, 500)  + scale_colour_manual(values=c("#91278e", "#f7921e")) + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) + xlab("Distance to the source (km)")
 CO2_distancebyposition
 
 CH4_distance <- ggplot(dat, aes(Distance_to_source_km, CH4_C_mg_m2_h)) + geom_point(aes(colour=site), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CH4_distance
 
-CH4_distancebyposition <- ggplot(dat, aes(Distance_to_source_km, CH4_C_mg_m2_h)) + geom_point(aes(colour=position), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1) + scale_colour_manual(values=c("#f7921e", "#91278e"))
+CH4_distancebyposition <- ggplot(dat, aes(Distance_to_source_km, CH4_C_mg_m2_h)) + geom_point(aes(colour=position), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1) + scale_colour_manual(values=c("#91278e", "#f7921e"))  + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))  + xlab("Distance to the source (km)")
 CH4_distancebyposition
 
+#combine CO2 and CH4 distance to source by position
+tiff("CO2_CH4_distancebyposition", units="in", width=4, height=6, res=300)
+
+CO2_CH4_distancebyposition <- ggarrange(CO2_distancebyposition +theme(axis.title.x = element_blank()),  CH4_distancebyposition ,ncol = 1, nrow = 2, align="hv",common.legend = T,legend="top",  labels = c("(a)", "(b)"))
+CO2_CH4_distancebyposition
+
+dev.off()
+
+
 ## GHG and distance to dam
-CO2_distancedam <- ggplot(dat, aes(Distance_downstream_dam_5m._km, CO2_C_mg_m2_h)) + geom_point(aes(colour=site), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+CO2_distancedam <- ggplot(dat, aes(dist_ds_dam_km, CO2_C_mg_m2_h)) + geom_point(aes(colour=site), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CO2_distancedam
 
 
-CH4_distancedam <- ggplot(dat, aes(Distance_downstream_dam_5m._km, CH4_C_mg_m2_h)) + geom_point(aes(colour=site), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+CH4_distancedam <- ggplot(dat, aes(dist_ds_dam_km, CH4_C_mg_m2_h)) + geom_point(aes(colour=site), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CH4_distancedam
 
 ## GHG and width/depth
 
-CO2_width <- ggplot(dat, aes(wetted_width_m, CO2_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) +   facet_wrap(~ season, ncol = 1)  # Facet by campaign
+CO2_width <- ggplot(dat, aes(wetted_width_m, CO2_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", formula = y ~ log(x), se = F, size = 1, colour="#1e6b63") + xlab("Wetted width (m)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_width
 
-CO2_depth <- ggplot(dat, aes(mean_depth_cm, CO2_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+# Fit the linear model and log models
+linear_model <- lm(CO2_C_mg_m2_h ~ wetted_width_m, data = dat)
+log_model <- lm(log(CO2_C_mg_m2_h+39.37704) ~ wetted_width_m, data = dat)
+
+# Calculate R-squared values
+linear_r_squared <- summary(linear_model)$r.squared #0.06011128
+log_r_squared <- summary(log_model)$r.squared #0.1331127 #so the log model fits better
+
+
+CO2_depth <- ggplot(dat, aes(mean_depth_cm, CO2_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + xlab("sqrt depth (cm)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_depth
+
+# Fit the linear model and log models
+linear_model <- lm(CO2_C_mg_m2_h ~ mean_depth_cm, data = dat) #0.01478489
+log_model <- lm(log(CO2_C_mg_m2_h+39.37704) ~ mean_depth_cm, data = dat) #0.04608046 
+log2_model <- lm(CO2_C_mg_m2_h ~ log(mean_depth_cm), data = dat) #0.008470237 
+sqrt_model <- lm(CO2_C_mg_m2_h ~ sqrt(mean_depth_cm), data = dat) #0.01242048
+
+# Calculate R-squared values
+linear_r_squared <- summary(linear_model)$r.squared 
+log_r_squared <- summary(log_model)$r.squared 
+log2_r_squared <- summary(log2_model)$r.squared 
+sqrt_r_squared <- summary(sqrt_model)$r.squared 
 
 CH4_width <- ggplot(dat, aes(wetted_width_m, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) +   facet_wrap(~ season, ncol = 1)  # Facet by campaign
 CH4_width
@@ -462,7 +513,7 @@ CO2_airtemp
 CH4_airtemp <- ggplot(dat, aes(temp_C, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CH4_airtemp
 
-CO2_watertemp <- ggplot(dat, aes(DailyMeanWaterTemp_C, CO2_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+CO2_watertemp <- ggplot(dat, aes(DailyMeanWaterTemp_C, CO2_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + xlab("Water temperature (C)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_watertemp
 
 CH4_watertemp <- ggplot(dat, aes(DailyMeanWaterTemp_C, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
@@ -484,7 +535,7 @@ CH4_discharge
 
 ## GHG and sed OM
 
-CO2_sedOM <- ggplot(dat, aes(sed_OM_percent, CO2_C_mg_m2_h)) + geom_point(size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+CO2_sedOM <- ggplot(dat, aes(sed_OM_percent, CO2_C_mg_m2_h)) + geom_point(colour="#26867c",size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size =12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + xlab("Sediment OM (%)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_sedOM
 
 CH4_sedOM <- ggplot(dat, aes(sed_OM_percent, CH4_C_mg_m2_h)) + geom_point(size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
@@ -498,7 +549,13 @@ CO2_DO
 CH4_DO <- ggplot(dat, aes(DO_mg_L, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CH4_DO
 
-CO2_pH <- ggplot(dat, aes(water_pH, CO2_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+CO2_DO_sat <- ggplot(dat, aes(DO_., CO2_C_mg_m2_h)) + geom_point(colour= "#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + xlab("Dissolved oxygen (%)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") 
+CO2_DO_sat
+
+CH4_DO_sat <- ggplot(dat, aes(DO_., CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+CH4_DO_sat
+
+CO2_pH <- ggplot(dat, aes(water_pH, CO2_C_mg_m2_h)) + geom_point(colour= "#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63")  + xlab("Water pH") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_pH
 
 CH4_pH <- ggplot(dat, aes(water_pH, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
@@ -539,6 +596,20 @@ OM_stock
 
 OM_flux <-  ggplot(dat, aes(wetted_width_m, OM_flux_g_m2_s)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) +   facet_wrap(~ season, ncol = 1)  # Facet by campaign
 OM_flux
+
+## Combine plots for CO2 drivers from RF ##
+
+tiff("CO2_inf_vars", units="in", width=4, height=6, res=300)
+
+CO2_inf_vars <- ggarrange(CO2_DO_sat + theme(axis.title.x = element_blank()),  
+                          CO2_pH + theme(axis.title.x = element_blank()), 
+                          CO2_sedOM + theme(axis.title.x = element_blank()), 
+                          CO2_watertemp + theme(axis.title.x = element_blank()), 
+                          ncol = 1, nrow = 2, align="hv",common.legend = T,legend="top",  
+                          labels = c("(a)", "(b)"))
+CO2_inf_vars
+
+dev.off()
 
 
 ############# Make network maps with variables ###############
@@ -670,12 +741,12 @@ dat_rf <- dat %>%
  # filter(site %in% upstream_sites)  %>%
   select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel)
 
-str(dat_upstream)
+#str(dat_upstream)
 str(dat_rf)
 
 
 # Convert the tibble to a data frame
-dat_upstream <- as.data.frame(dat_upstream)
+#dat_upstream <- as.data.frame(dat_upstream)
 dat_rf <- as.data.frame(dat_rf)
 
 #The training data is used for building a model, while the testing data is used for making predictions. This means after fitting a model on the training data set, finding of the errors and minimizing those error, the model is used for making predictions on the unseen data which is the test data.
@@ -702,15 +773,15 @@ dim(data_train)
 str(data_train)
 
 #Find optimized value of number of random variables
-bestmtry <- tuneRF(data_train,data_train$CO2_C_mg_m2_h,stepFactor = 1.2, improve = 0.01, trace=T, plot= T)  #7
+bestmtry <- tuneRF(data_train,data_train$CO2_C_mg_m2_h,stepFactor = 1.2, improve = 0.01, trace=T, plot= T)  #9
 
 #create RF model: 
-model <- randomForest(CO2_C_mg_m2_h~.,data= data_train, ntree = 1000, mtry = 7, importance = TRUE) #need to determine what is the best value for mtry and ntree
+model <- randomForest(CO2_C_mg_m2_h~.,data= data_train, ntree = 1000, mtry = 9, importance = TRUE) #need to determine what is the best value for mtry and ntree
 model 
 
 plot(model)
 
-imp <- importance(model)  # returns the importance of the variables
+imp <- randomForest::importance(model)  # returns the importance of the variables
 
 varImpPlot(model)  # visualizing the importance of variables of the model.
 
@@ -765,6 +836,143 @@ sqrt(mean((pred_test - data_test$CO2_C_mg_m2_h)^2))
 #0.5937679
 
 
+
+#### Find best LMM and make predictions ####
+
+# Can make a model explaining GHG fluxes using all of the sites upstream of the two dams, then predict the CO2/CH4 values for downstream of the dams, and see if they differ from the actual measured values
+
+#Maybe first you can use RF to determine top drivers with a subset of the data set. 
+# sedOM%, DO%, water pH, water conductivity
+
+#Before running an LMM, need to test the predictors for multicollinearity
+
+#create a linear model with all of the data. 
+CO2_model <- lm(CO2_C_mg_m2_h~., data = dat_rf) #try with dat_colin to check if removal improved VIFs
+
+#Test tolerance and VIF. Tolerance measures the percent of the variance in the independent variable that cannot be accounted for by the other independent variables. The Variance Inflation Factor (VIF) measures the inflation in the coefficient of the independent variable due to the collinearities among the other independent variables (VIF>10 indicates multicollinearity).
+
+vif_df <-as.data.frame(ols_vif_tol(CO2_model))
+
+# Order the data frame by VIF values in decreasing order
+vif_df <- vif_df[order(vif_df$VIF, decreasing = TRUE), ]
+#Variables with VIF >10 are DO_mg_L, water_temp_C, dist_ds_dam_km, DO_., Distance_to_source_km, masl
+
+#We can remove DO_mg_L, as it has the highest VIF, and it is still represented in DO %
+#we can remove water_temp_C as it is represented in the iButton water temp
+#we can remove dist_ds_dam_km as it is represented in width and depth
+
+#rerun the ols_vif_tol analysis with these vars removed
+
+#now distance to source and masl are remaining, removed distance to source. 
+
+dat_colin <- dat %>% 
+  # filter(site %in% upstream_sites)  %>%
+  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -position)
+
+####################################################################################
+
+#### Run LMM for CO2 ####
+
+#Add back the non-numeric variables needed for the random effects
+dat_lm <- dat %>% 
+  # filter(site %in% upstream_sites)  %>%
+  select(-date,  -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km)
+
+#log trasnform CO2
+min(dat_lm$CO2_C_mg_m2_h) #-38.37704
+dat_lm$log_CO2_C_mg_m2_h <- log(dat_lm$CO2_C_mg_m2_h+39.37704)
+
+#scale the data
+dat_scaled <- dat_lm %>%
+  select(-CO2_C_mg_m2_h) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+#start with a saturated model 
+CO2_lmer <- lmer(log_CO2_C_mg_m2_h ~ . - site - season +  (1 + season | site), data = dat_scaled)
+
+summary(CO2_lmer) #not sure why suddenly failing to converge when it worked before
+
+plot(CO2_lmer) #log transforming gets rid of the fan shape
+qqnorm(resid(CO2_lmer)) #1, maybe 4 outliers
+
+#Check outliers with Cook's Distance
+cooksD <- cooks.distance(CO2_lmer) #run the model with dat_sub first
+influential <- cooksD[(cooksD > (15* mean(cooksD, na.rm = TRUE)))]
+influential #102, 134, 309, 310
+
+n <- nrow(dat_scaled)
+plot(cooksD, main = "Cooks Distance for Influential Obs")
+abline(h = 28/n, lty = 2, col = "steelblue") # add cutoff line
+
+names_of_influential <- names(influential)
+outliers <- dat_scaled[names_of_influential,]
+dat_scaled_out <- dat_scaled %>% anti_join(outliers)
+
+#Run again with outliers removed
+
+#dredge doesn't like the '.' in the formula, so put in all of the columns...
+names(dat_scaled)[sapply(dat_scaled_out, is.numeric)]
+
+#Saturated model 
+CO2_lmer <- lmer(log_CO2_C_mg_m2_h ~ 
+                   water_pH + water_conductivity_us_cm+DO_.+canopy_cover_.+  wetted_width_m+discharge_m3_s+mean_velocity_m_s+mean_depth_cm+k_dday_coarse+k_dday_fine+OM_stock_g_m2+OM_flux_g_m2_s+sed_OM_percent+temp_C+DailyMeanWaterTemp_C+masl+bedrock+fine_substrate+
+                   (1 + season | site), data = dat_scaled_out)
+
+summary(CO2_lmer) #not sure why suddenly failing to converge when it worked before
+
+
+
+plot(CO2_lmer) #Looks absolutely perfecto with log transformation and 4 outliers removed. log transforming gets rid of the fan shape
+qqnorm(resid(CO2_lmer)) #4 outliers removed
+
+#Dredge is not working, too many variables I think, so try stepwise model selection
+ #backwards stepwise selection
+
+#elimination of non-significant effects
+s <- lmerTest::step(CO2_lmer) #performs a backwards variable selection
+# Model found:
+CO2_lmer2 <- lmer(log_CO2_C_mg_m2_h ~ DO_. + canopy_cover_. + discharge_m3_s + mean_velocity_m_s + k_dday_fine +  (1 + season | site), data = dat_scaled_out) 
+
+summary(CO2_lmer2)
+plot(CO2_lmer2) 
+qqnorm(resid(CO2_lmer2))
+AIC(CO2_lmer2) #449.7915
+
+#compare to the model with the top variables from RF
+CO2_lmer3 <- lmer(log_CO2_C_mg_m2_h ~ sed_OM_percent + DO_. + water_pH + wetted_width_m + (1 + season | site), data = dat_scaled_out) 
+
+summary(CO2_lmer3)
+plot(CO2_lmer3) 
+qqnorm(resid(CO2_lmer3))
+AIC(CO2_lmer3) #494.0276
+
+
+#############################################################################
+
+# Run a PCA
+
+dat_PCA <- dat_rf[, sapply(dat_rf, is.numeric)]
+
+PCA_CO2 <- PCA(dat_PCA, scale.unit = TRUE, ncp = 5, graph = TRUE)
+PCA_CO2
+
+
+PCA_CO2_fig <- fviz_pca_biplot(PCA_CO2, 
+                                   col.ind = dat$position, #change for flow_state
+                                   addEllipses = TRUE, label = "var",
+                                   pointsize=3,
+                                   alpha.ind=0.4,
+                                   mean.point=F,
+                                   col.var = "black", repel = TRUE,
+                                   legend.title = " ") + ggtitle(NULL) 
+PCA_CO2_fig
+
+#The variables most strongly associated with standing water are: fine substrate, mean depth, water_conductivity, wetted width, sed_OM percent, DO mg L, OM stock,  and OM flux.
+
+#The variables most strongly positively associated with upstream are: masl, canopy cover, k_dday_coarse, and k_dday_fine
+
+
+#####################################################################
 #### Try structural equation modeling SEM ####
 
 library(lavaan)
@@ -775,35 +983,34 @@ dat <-as.data.frame(dat)
 row.names(dat) <- NULL  # Remove existing row names
 row.names(dat) <- 1:nrow(dat)  # Assign new row names
 
+#we want to create two latent variables which are "dam effect" and "network effect", to see how these impact CO2 fluxes
+
 #Fit a test model
-model <-'CO2_C_mg_m2_h ~ sed_OM_percent + DO_. + water_pH 
-CH4_C_mg_m2_h ~ sed_OM_percent + DO_. + water_pH 
-CO2_C_mg_m2_h ~ dist_ds_dam_km 
-CH4_C_mg_m2_h ~ dist_ds_dam_km 
-sed_OM_percent  ~ dist_ds_dam_km 
-DO_. ~ dist_ds_dam_km 
-water_pH ~ dist_ds_dam_km 
+mCO2 <- '
+# measurement model
+dam =~ fine_substrate + mean_depth_cm + water_conductivity_us_cm + wetted_width_m + OM_stock_g_m2 
+
+# regressions
+CO2_C_mg_m2_h ~ dam + masl
 '
+fitmCO2 <- sem(mCO2, data=dat)
 
-fit <- cfa(model, data = dat)
+summary(fitmCO2, standardized=TRUE, fit.measures=TRUE)
 
-summary(fit)
+#get p values of coefficients
+table2<-parameterEstimates(fitmCO2,standardized=TRUE)  %>%  head(7)
 
-node_labels <- c("CO2", "CH4",  "sed_OM", "DO", "water_pH", "dist_dam")
+#turning the chosen parameters into text
+b<-gettextf('%.3f \n p=%.3f', table2$est, digits=table2$pvalue)
+
+node_labels <- c("Fine", "Depth", "Conduct", "Width", "OM_stock", "CO2", "masl", "dam")
 
 # Create path diagram with adjusted settings
-semPaths(fit, intercept = FALSE, whatLabel = "est",
+semPaths(fitmCO2, intercept = FALSE, 
+         whatLabel = "est",
+         edgeLabels = b,
          residuals = FALSE, exoCov = FALSE, 
          nodeLabels = node_labels,
-         style='lisrel', edge.label.cex = 1.3,
-         layout = "tree", sizeMan = 7)
-
-#### Find best LMM and make predictions ####
-
-# Can make a model explaining GHG fluxes using all of the sites upstream of the two dams, then predict the CO2/CH4 values for downstream of the dams, and see if they differ from the actual measured values
-
-#Maybe first you can use RF to determine top drivers with a subset of the data set. 
-# sedOM%, DO%, water pH, water conductivity, wetted width, distance ds dam
-
-
+         style='ram', edge.label.cex = 1.3,
+         layout = "tree", sizeMan = 11)
 
