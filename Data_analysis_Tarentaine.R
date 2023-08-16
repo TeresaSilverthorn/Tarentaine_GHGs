@@ -20,6 +20,7 @@ library(MuMIn)
 library(cAIC4) #step AIC
 library(FactoMineR) #for PCA
 library(factoextra) #for visualizing CPA
+library(buildmer) #for model selection
 
 # Set wd for figures
 
@@ -727,14 +728,8 @@ OMspring <-ggplot() +
 # Goal: to use the sites upstream of the 2 main dams, find the drivers of GHG fluxes and OM, and then using that relationship predict the downstream values, then compare those to the actual impacted values to see what effect the dams have. 
 
 
-#Should we also try with site means? We need to get rid of ID, Site, campaign, etc. 
 
-#Subset just the upstream sites, TA06, TA11, TA07, TA08, TA12 and higher
-
-upstream_sites <- c("TA06", "TA11", "TA07", "TA08", "TA12", "TA13", "TA14", "TA15", "TA17", "TA20", "TA21", "TA22", "TA24", "TA02R")
-#15 sites
-downstream_sites <- c("TA04", "TA05", "TA09", "TA10", "TA01", "TA02", "TA03")
-#7 sites
+#### run RF for CO2 ####
 
 # Subset 
 dat_rf <- dat %>% 
@@ -772,6 +767,7 @@ dim(data_train)
 
 str(data_train)
 
+
 #Find optimized value of number of random variables
 bestmtry <- tuneRF(data_train,data_train$CO2_C_mg_m2_h,stepFactor = 1.2, improve = 0.01, trace=T, plot= T)  #9
 
@@ -799,7 +795,7 @@ for (i in seq_along(top_variables)) {
 }
 par(op)
 
-### Visualize variable importance ----------------------------------------------
+# Visualize variable importance 
 
 # Get variable importance from the model fit
 ImpData <- as.data.frame(importance(model))
@@ -837,6 +833,91 @@ sqrt(mean((pred_test - data_test$CO2_C_mg_m2_h)^2))
 
 
 
+#### run RF for CH4 ####
+
+# Subset 
+dat_rf <- dat %>% 
+  # filter(site %in% upstream_sites)  %>%
+  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel)
+
+#str(dat_upstream)
+str(dat_rf)
+
+
+# Convert the tibble to a data frame
+#dat_upstream <- as.data.frame(dat_upstream)
+dat_rf <- as.data.frame(dat_rf)
+
+#The training data is used for building a model, while the testing data is used for making predictions. This means after fitting a model on the training data set, finding of the errors and minimizing those error, the model is used for making predictions on the unseen data which is the test data.
+
+#split <- sample.split(dat_upstream, SplitRatio = 0.8) 
+#split 
+
+#can also trying using the entire data set
+
+split <- sample.split(dat_rf, SplitRatio = 0.8) 
+split 
+
+#The split method splits the data into train and test datasets with a ratio of 0.8 This means 80% of our dataset is passed in the training dataset and 20% in the testing dataset.
+
+data_train <- subset(dat_rf, split == "TRUE") 
+data_test <- subset(dat_rf, split == "FALSE") 
+
+any_na <- any(is.na(data_train))
+
+na_columns <- colnames(data_train)[apply(data_train, 2, anyNA)]
+
+dim(data_train)
+
+str(data_train)
+
+#Find optimized value of number of random variables
+bestmtry <- tuneRF(data_train,data_train$CH4_C_mg_m2_h,stepFactor = 1.2, improve = 0.01, trace=T, plot= T)  #9
+
+#create RF model for CH4
+modelCH4 <- randomForest(CH4_C_mg_m2_h~.,data= data_train, ntree = 400, mtry = 9, importance = TRUE) #need to determine what is the best value for mtry and ntree
+modelCH4 
+
+plot(modelCH4)
+
+imp <- randomForest::importance(modelCH4)  # returns the importance of the variables
+
+varImpPlot(modelCH4)  # visualizing the importance of variables of the model.
+
+impvar <- rownames(imp)[order(imp[, 1], decreasing=TRUE)]
+
+# Select the top 6 variables
+top_variables <- impvar[1:6]
+
+op <- par(mfrow=c(2, 3))
+
+for (i in seq_along(top_variables)) {
+  partialPlot(model, data_train, impvar[i], xlab=impvar[i],
+              main=paste("Partial Dependence on", impvar[i]),
+              ylim=c(30, 70))
+}
+par(op)
+
+# Visualize variable importance 
+
+# Get variable importance from the model fit
+ImpData <- as.data.frame(sw(modelCH4))
+ImpData$Var.Names <- row.names(ImpData)
+
+ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
+  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +
+  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +
+  theme_light() +
+  coord_flip() +
+  theme(
+    legend.position="bottom",
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+
+################################################################################
 #### Find best LMM and make predictions ####
 
 # Can make a model explaining GHG fluxes using all of the sites upstream of the two dams, then predict the CO2/CH4 values for downstream of the dams, and see if they differ from the actual measured values
@@ -846,8 +927,16 @@ sqrt(mean((pred_test - data_test$CO2_C_mg_m2_h)^2))
 
 #Before running an LMM, need to test the predictors for multicollinearity
 
+# Check colinearity for CO2
+
+#remove irrelevant variables
+dat_lm <- dat %>% 
+  # filter(site %in% upstream_sites)  %>%
+  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -season, -bedrock, -pebble_gravel, -cobble, -position, -flow_state)
+
+
 #create a linear model with all of the data. 
-CO2_model <- lm(CO2_C_mg_m2_h~., data = dat_rf) #try with dat_colin to check if removal improved VIFs
+CO2_model <- lm(CO2_C_mg_m2_h~., data = dat_lm_CO2_up) #try with dat_colin to check if removal improved VIFs
 
 #Test tolerance and VIF. Tolerance measures the percent of the variance in the independent variable that cannot be accounted for by the other independent variables. The Variance Inflation Factor (VIF) measures the inflation in the coefficient of the independent variable due to the collinearities among the other independent variables (VIF>10 indicates multicollinearity).
 
@@ -871,26 +960,35 @@ dat_colin <- dat %>%
 
 ####################################################################################
 
-#### Run LMM for CO2 ####
+#### Run LMM for CO2 upstream ####
+
+#Subset just the upstream sites, TA06, TA11, TA07, TA08, TA12 and higher
+
+upstream_sites <- c("TA06", "TA11", "TA07", "TA08", "TA12", "TA13", "TA14", "TA15", "TA17", "TA20", "TA21", "TA22", "TA24", "TA02R")
+#15 sites
+downstream_sites <- c("TA04", "TA05", "TA09", "TA10", "TA01", "TA02", "TA03")
+#7 sites
+
 
 #Add back the non-numeric variables needed for the random effects
-dat_lm <- dat %>% 
-  # filter(site %in% upstream_sites)  %>%
-  select(-date,  -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km)
+dat_lm_CO2_up <- dat %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -position)
+#remove all of the variables that were identified by collinearity analysis
 
 #log trasnform CO2
-min(dat_lm$CO2_C_mg_m2_h) #-38.37704
-dat_lm$log_CO2_C_mg_m2_h <- log(dat_lm$CO2_C_mg_m2_h+39.37704)
+min(dat_lm_CO2_up$CO2_C_mg_m2_h) #-38.37704
+dat_lm_CO2_up$log_CO2_C_mg_m2_h <- log(dat_lm_CO2_up$CO2_C_mg_m2_h+39.37704)
 
 #scale the data
-dat_scaled <- dat_lm %>%
+dat_scaled <- dat_lm_CO2_up %>%
   select(-CO2_C_mg_m2_h) %>%
   mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
 
 #start with a saturated model 
 CO2_lmer <- lmer(log_CO2_C_mg_m2_h ~ . - site - season +  (1 + season | site), data = dat_scaled)
 
-summary(CO2_lmer) #not sure why suddenly failing to converge when it worked before
+summary(CO2_lmer) 
 
 plot(CO2_lmer) #log transforming gets rid of the fan shape
 qqnorm(resid(CO2_lmer)) #1, maybe 4 outliers
@@ -918,20 +1016,43 @@ CO2_lmer <- lmer(log_CO2_C_mg_m2_h ~
                    water_pH + water_conductivity_us_cm+DO_.+canopy_cover_.+  wetted_width_m+discharge_m3_s+mean_velocity_m_s+mean_depth_cm+k_dday_coarse+k_dday_fine+OM_stock_g_m2+OM_flux_g_m2_s+sed_OM_percent+temp_C+DailyMeanWaterTemp_C+masl+bedrock+fine_substrate+
                    (1 + season | site), data = dat_scaled_out)
 
-summary(CO2_lmer) #not sure why suddenly failing to converge when it worked before
+summary(CO2_lmer) #This model is too big for dredge maybe?
 
-
+vif <- car::vif(CO2_lmer) #all under 10
 
 plot(CO2_lmer) #Looks absolutely perfecto with log transformation and 4 outliers removed. log transforming gets rid of the fan shape
 qqnorm(resid(CO2_lmer)) #4 outliers removed
 
 #Dredge is not working, too many variables I think, so try stepwise model selection
- #backwards stepwise selection
+
+lmerTest::step(CO2_lmer)
+
+#Model found:
+#log_CO2_C_mg_m2_h ~ DO_. + discharge_m3_s + mean_velocity_m_s + OM_flux_g_m2_s + (1 + season | site)
+
+#use dredge to find best model
+#subset just the upstream sites, find best model, and predict downstream sites
+
+#Run dredge
+options(na.action = "na.fail") # Required for dredge to run
+
+lmer_CO2_dredge<- MuMIn::dredge(CO2_lmer, trace = 2, extra = list(
+  "R^2", "*" = function(x) {
+    s <- summary(x)
+    c(Rsq = s$r.squared, adjRsq = s$adj.r.squared,
+      F = s$fstatistic[[1]])
+  }))
+
+options(na.action = "na.omit") 
+
+nrow(lmer_CO2_dredge)  #how many models were run 8192
+head(lmer_CO2_dredge)
 
 #elimination of non-significant effects
 s <- lmerTest::step(CO2_lmer) #performs a backwards variable selection
 # Model found:
-CO2_lmer2 <- lmer(log_CO2_C_mg_m2_h ~ DO_. + canopy_cover_. + discharge_m3_s + mean_velocity_m_s + k_dday_fine +  (1 + season | site), data = dat_scaled_out) 
+CO2_lmer2 <- lmer(log_CO2_C_mg_m2_h ~ DO_. + discharge_m3_s + mean_velocity_m_s + OM_flux_g_m2_s + (1 + season | site)
+ +  (1 + season | site), data = dat_scaled_out) 
 
 summary(CO2_lmer2)
 plot(CO2_lmer2) 
@@ -949,7 +1070,7 @@ AIC(CO2_lmer3) #494.0276
 
 #############################################################################
 
-# Run a PCA
+#### Run a PCA ####
 
 dat_PCA <- dat_rf[, sapply(dat_rf, is.numeric)]
 
@@ -966,6 +1087,16 @@ PCA_CO2_fig <- fviz_pca_biplot(PCA_CO2,
                                    col.var = "black", repel = TRUE,
                                    legend.title = " ") + ggtitle(NULL) 
 PCA_CO2_fig
+
+#variable percent contributions
+
+var <- get_pca_var(PCA_CO2)
+
+head(var$contrib, 100)
+
+# Contributions of variables to PC1
+fviz_contrib(PCA_CO2, choice = "var", axes = 1, top = 10)
+fviz_contrib(PCA_CO2, choice = "var", axes = 2, top = 10)
 
 #The variables most strongly associated with standing water are: fine substrate, mean depth, water_conductivity, wetted width, sed_OM percent, DO mg L, OM stock,  and OM flux.
 
@@ -989,28 +1120,41 @@ row.names(dat) <- 1:nrow(dat)  # Assign new row names
 mCO2 <- '
 # measurement model
 dam =~ fine_substrate + mean_depth_cm + water_conductivity_us_cm + wetted_width_m + OM_stock_g_m2 
+network =~ discharge_m3_s + masl
+local =~ water_pH +
 
 # regressions
-CO2_C_mg_m2_h ~ dam + masl
+CO2_C_mg_m2_h ~ dam + network
+
+# variances and covariances 
+               discharge_m3_s ~~ discharge_m3_s
+    
+               dam ~~ network 
 '
 fitmCO2 <- sem(mCO2, data=dat)
 
 summary(fitmCO2, standardized=TRUE, fit.measures=TRUE)
 
+
 #get p values of coefficients
-table2<-parameterEstimates(fitmCO2,standardized=TRUE)  %>%  head(7)
+table2<-parameterEstimates(fitmCO2,standardized=TRUE)  %>%  head(9)
 
 #turning the chosen parameters into text
 b<-gettextf('%.3f \n p=%.3f', table2$est, digits=table2$pvalue)
 
-node_labels <- c("Fine", "Depth", "Conduct", "Width", "OM_stock", "CO2", "masl", "dam")
+node_labels <- c("Fine\nsubstrate", "Depth", "Conduct\nivity", "Width", "OM\nstock", "masl", "Discharge", "CO2", "Dam", "Network")
 
 # Create path diagram with adjusted settings
 semPaths(fitmCO2, intercept = FALSE, 
          whatLabel = "est",
+         what="std",
          edgeLabels = b,
+        # edge.color= ifelse(table2$est > 0, "green", "red"), 
          residuals = FALSE, exoCov = FALSE, 
          nodeLabels = node_labels,
          style='ram', edge.label.cex = 1.3,
-         layout = "tree", sizeMan = 11)
+         layout = "tree", sizeMan = 7)
+
+
+semPaths(fitmCO2, "std", edge.label.cex = 1.0, curvePivot = TRUE) #nice layout
 
