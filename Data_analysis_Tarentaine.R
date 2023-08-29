@@ -21,6 +21,9 @@ library(cAIC4) #step AIC
 library(FactoMineR) #for PCA
 library(factoextra) #for visualizing CPA
 library(buildmer) #for model selection
+library(data.table)
+library(vegan)
+
 
 # Set wd for figures
 
@@ -49,6 +52,12 @@ ancil_dat <- ancil_dat %>%
          cobble=X._cobble, 
          pebble_gravel=X._pebble_gravel, 
          fine_substrate=X._fine_substrate)
+
+#calculate the shannon diversity of the substrate types to represent habitat diversity/complexity per:
+#Barnes, J. B., Vaughan, I. P., & Ormerod, S. J. (2013). Reappraising the effects of habitat structure on river macroinvertebrates. Freshwater Biology, 58(10), 2154-2167.
+
+dat <- dat %>%
+  mutate(substrate_complexity = diversity(select(., bedrock, boulder, cobble, pebble_gravel, fine_substrate), index = "shannon"))
 
 
 ############################################################################
@@ -356,6 +365,7 @@ dat <- dat  %>%
 dat$campaign <- as.factor(dat$campaign)
 dat$water_temp_C <- as.numeric(dat$water_temp_C)
 
+
 #make a new column where campaign is season
 
 dat <- dat %>%
@@ -368,11 +378,27 @@ dat <- dat %>%
 
 dat$season<- as.factor(dat$season)
 
+#set spring as reference level
+dat$season <- relevel(dat$season, ref = "Spring")
+
+#Add a variable for network position upstream/dowsntream
 dat <- dat %>%
   mutate(position = case_when(
     dist_ds_dam_km < 0 ~ "upstream",
     dist_ds_dam_km > 0 ~ "downstream",
   ))
+
+#Add a variable for network position which also includes dam
+dat <- dat %>%
+  mutate(position_d = case_when(
+    flow_state == "standing" ~ "dam",
+    dist_ds_dam_km < 0 ~ "upstream",
+    dist_ds_dam_km > 0 ~ "downstream",
+  ))
+
+dat$position_d<- as.factor(dat$position_d)
+
+dat$position_d <- relevel(dat$position_d, ref = "upstream")
 
 #### Save as .csv ####
 
@@ -386,16 +412,48 @@ write.csv(dat, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fi
 
 dat_means <- dat %>% 
   dplyr::select(-ID_unique, -transect, -start_time, -end_time) %>% # use select with -var_name to eliminate columns 
-  dplyr::group_by(site, campaign, date, flow_state, season, position) %>% # we group by the two values
+  dplyr::group_by(site, campaign, date, flow_state, season, position, position_d) %>% # we group by the two values
   dplyr::summarise(across(.cols = everything(), .fns = mean, .names = "{.col}"))
    
 dat_means <- as.data.frame(dat_means)
 
-str(dat_means) #58 obs of 38 vars
+str(dat_means) #58 obs of 40 vars
+
+
+#calculate averages of all variables
+
+data_summary <- dat %>%
+  group_by(campaign) %>%
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE)))
+
+data_summary_total <- data_summary %>%
+  summarise(across(-campaign, ~ mean(.x)))
+
+# Bind the total mean row to the campaign summary
+data_sum <- bind_rows(data_summary, data_summary_total)
+
+print(data_sum)
+
+common_sites <- dat %>%
+  group_by(site) %>%
+  summarise(num_campaigns = n_distinct(campaign)) %>%
+  filter(num_campaigns == n_distinct(dat$campaign)) %>%
+  pull(site)
+
+print(common_sites)
+length(common_sites) #18
 
 
 ###############################################################################
 #### Make preliminary plots ####
+
+#Can separate sites for plotting
+
+#Subset just the upstream sites, TA06, TA11, TA07, TA08, TA12 and higher
+upstream_sites <- c("TA06", "TA11", "TA07", "TA08", "TA12", "TA13", "TA14", "TA15", "TA17", "TA20", "TA21", "TA22", "TA24", "TA02R")
+#15 sites
+downstream_sites <- c("TA04", "TA05", "TA09", "TA10", "TA01", "TA02", "TA03")
+#7 sites
 
 
 #### Make a correlation plot ####
@@ -405,6 +463,10 @@ dat_numeric <- dat %>%
   select_if(is.numeric)
 
 dat_numeric <- na.omit(dat_numeric) #remove NAs
+
+#remove irrelevant variables
+dat_numeric <- dat_numeric   %>%
+  select(-LML_coarse, -LML_fine, -k_day_fine, -k_day_coarse, -lat, -lon)
 
 M <-cor(dat_numeric)
 
@@ -420,7 +482,7 @@ correlation_matrix <- cor(dat_numeric)
 correlation_df <- as.data.frame(as.table(correlation_matrix))
 
 
-## CO2 by site and campaign 
+#### GHG by site and campaign ####
 CO2_site<- ggplot(data=dat, aes(x=as.factor(site), y=CO2_C_mg_m2_h, fill=as.factor(season))) +
   geom_bar(stat="identity", position=position_dodge())+  theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 15), axis.text = element_text(size = 15, colour="black")) 
 CO2_site
@@ -429,7 +491,27 @@ CH4_site<- ggplot(data=dat, aes(x=as.factor(site), y=CH4_C_mg_m2_h, fill=as.fact
   geom_bar(stat="identity", position=position_dodge())+  theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 15), axis.text = element_text(size = 15, colour="black")) 
 CH4_site
 
-## GHG by altitude (masl)
+#### GHG by position ####
+
+tiff("CO2_position_d", units="in", width=6, height=4, res=300)
+CO2_position<- ggplot(data=dat, aes(position_d, y=CO2_C_mg_m2_h, fill=season)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 15), axis.text = element_text(size = 15, colour="black")) + ylim(-40, 350) + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) 
+CO2_position
+dev.off()
+
+tiff("CH4_position_d", units="in", width=6, height=4, res=300)
+CH4_position<- ggplot(data=dat, aes(position_d, y=CH4_C_mg_m2_h, fill=season)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),   axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 15), axis.text = element_text(size = 15, colour="black")) + ylim(-.01, 20) + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))  
+CH4_position
+dev.off()
+
+#### OM stock by position ####
+
+OMstock_position<- ggplot(data=dat, aes(position_d, y=OM_stock_g_m2, fill=season)) +
+  geom_boxplot(position = position_dodge(width = 0.8)) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 15), axis.text = element_text(size = 15, colour="black"))  
+OMstock_position
+
+#### GHG by altitude (masl) ####
 CO2_masl <- ggplot(dat, aes(masl, CO2_C_mg_m2_h)) + geom_point(size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CO2_masl
 
@@ -437,7 +519,7 @@ CH4_masl <- ggplot(dat, aes(masl, CH4_C_mg_m2_h)) + geom_point(size=3.5, alpha=0
 CH4_masl
 
 
-## GHG and distance to source
+#### GHG and distance to source ####
 CO2_distance <- ggplot(dat, aes(Distance_to_source_km, CO2_C_mg_m2_h)) + geom_point(aes(colour=dist_ds_dam_km), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CO2_distance
 
@@ -463,7 +545,7 @@ CO2_CH4_distancebyposition
 dev.off()
 
 
-## GHG and distance to dam
+#### GHG and distance to dam ####
 CO2_distancedam <- ggplot(dat, aes(dist_ds_dam_km, CO2_C_mg_m2_h)) + geom_point(aes(colour=site), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CO2_distancedam
 
@@ -471,7 +553,7 @@ CO2_distancedam
 CH4_distancedam <- ggplot(dat, aes(dist_ds_dam_km, CH4_C_mg_m2_h)) + geom_point(aes(colour=site), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CH4_distancedam
 
-## GHG and width/depth
+#### GHG and width/depth ####
 
 CO2_width <- ggplot(dat, aes(wetted_width_m, CO2_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", formula = y ~ log(x), se = F, size = 1, colour="#1e6b63") + xlab("Wetted width (m)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_width
@@ -484,9 +566,10 @@ log_model <- lm(log(CO2_C_mg_m2_h+39.37704) ~ wetted_width_m, data = dat)
 linear_r_squared <- summary(linear_model)$r.squared #0.06011128
 log_r_squared <- summary(log_model)$r.squared #0.1331127 #so the log model fits better
 
-
-CO2_depth <- ggplot(dat, aes(mean_depth_cm, CO2_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + xlab("sqrt depth (cm)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
+tiff("CO2_depth", units="in", width=4, height=4, res=300)
+CO2_depth <- ggplot(subset(dat, site %in% upstream_sites), aes(mean_depth_cm, CO2_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + xlab("Mean depth (cm)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_depth
+dev.off()
 
 # Fit the linear model and log models
 linear_model <- lm(CO2_C_mg_m2_h ~ mean_depth_cm, data = dat) #0.01478489
@@ -503,16 +586,28 @@ sqrt_r_squared <- summary(sqrt_model)$r.squared
 CH4_width <- ggplot(dat, aes(wetted_width_m, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) +   facet_wrap(~ season, ncol = 1)  # Facet by campaign
 CH4_width
 
-CH4_depth <- ggplot(dat, aes(mean_depth_cm, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+tiff("CH4_depth", units="in", width=4, height=4, res=300)
+CH4_depth <- ggplot(subset(dat, site %in% upstream_sites), aes(mean_depth_cm, CH4_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) +geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1)) + xlab("Mean depth (cm)")
 CH4_depth
+dev.off()
 
-## GHG temperature
+
+tiff("CH4_canopy", units="in", width=4, height=4, res=300)
+CH4_canopy <- ggplot(subset(dat, site %in% upstream_sites), aes(canopy_cover_., CH4_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + xlab("Canopy cover (%)") +  ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))
+CH4_canopy
+dev.off()
+
+
+
+#### GHG temperature ####
 
 CO2_airtemp <- ggplot(dat, aes(temp_C, CO2_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CO2_airtemp
 
-CH4_airtemp <- ggplot(dat, aes(temp_C, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+tiff("CH4_airtemp", units="in", width=4, height=4, res=300)
+CH4_airtemp <- ggplot(subset(dat, site %in% upstream_sites), aes(temp_C, CH4_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) +  geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63")  + xlab("Air temperature (C)") +  ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))
 CH4_airtemp
+dev.off()
 
 CO2_watertemp <- ggplot(dat, aes(DailyMeanWaterTemp_C, CO2_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + xlab("Water temperature (C)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_watertemp
@@ -520,29 +615,49 @@ CO2_watertemp
 CH4_watertemp <- ggplot(dat, aes(DailyMeanWaterTemp_C, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CH4_watertemp
 
-## GHG and Velocity /discharge
+#### GHG and velocity /discharge ####
 
-CO2_veloc <- ggplot(dat, aes(mean_velocity_m_s, CO2_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+tiff("CO2_veloc", units="in", width=4, height=4, res=300)
+CO2_veloc <- ggplot(subset(dat, site %in% upstream_sites), aes(mean_velocity_m_s, CO2_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63")+ xlab("Mean velocity (m/s)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_veloc
+dev.off()
 
-CH4_veloc <- ggplot(dat, aes(mean_velocity_m_s, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+tiff("CO2_veloc", units="in", width=4, height=4, res=300)
+CO2_veloc <- ggplot(subset(dat, site %in% downstream_sites), aes(mean_velocity_m_s, CO2_C_mg_m2_h)) + geom_point(colour="#862630", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#50161c")+ xlab("Mean velocity (m/s)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
+CO2_veloc
+dev.off()
+
+
+tiff("CH4_veloc", units="in", width=4, height=4, res=300)
+CH4_veloc <- ggplot(subset(dat, site %in% downstream_sites), aes(mean_velocity_m_s, CH4_C_mg_m2_h)) + geom_point(colour= "#862630",size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#50161c") + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1)) + xlab("Mean velocity (m/s)")
 CH4_veloc
+dev.off()
 
-CO2_discharge <- ggplot(dat, aes(discharge_m3_s, CO2_C_mg_m2_h)) + geom_point(size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+
+tiff("CO2_discharge", units="in", width=4, height=4, res=300)
+CO2_discharge <- ggplot(subset(dat, site %in% downstream_sites), aes(discharge_m3_s, CO2_C_mg_m2_h)) + geom_point(colour="#862630", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + xlab("Discharge (m3/s)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) +geom_smooth(method = "lm", se = F, size = 1, colour="#50161c")
 CO2_discharge
+dev.off()
 
-CH4_discharge <- ggplot(dat, aes(discharge_m3_s, CH4_C_mg_m2_h)) + geom_point(size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+tiff("CH4_discharge", units="in", width=4, height=4, res=300)
+CH4_discharge <- ggplot(subset(dat, site %in% downstream_sites), aes(discharge_m3_s, CH4_C_mg_m2_h)) + geom_point(colour= "#862630", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#50161c")+ ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1)) + xlab("Discharge (m3/s")
 CH4_discharge
+dev.off()
 
-## GHG and sed OM
+
+#### GHG and sed OM ####
 
 CO2_sedOM <- ggplot(dat, aes(sed_OM_percent, CO2_C_mg_m2_h)) + geom_point(colour="#26867c",size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size =12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + xlab("Sediment OM (%)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_sedOM
 
-CH4_sedOM <- ggplot(dat, aes(sed_OM_percent, CH4_C_mg_m2_h)) + geom_point(size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+tiff("CH4_sedOM", units="in", width=4, height=4, res=300)
+CH4_sedOM <- ggplot(subset(dat, site %in% upstream_sites), aes(sed_OM_percent, CH4_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63")  + xlab("Sediment OM (%)") + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))
 CH4_sedOM
+dev.off()
 
-## GHG water chemistry
+
+
+#### GHG water chemistry ####
 
 CO2_DO <- ggplot(dat, aes(DO_mg_L, CO2_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CO2_DO
@@ -550,11 +665,15 @@ CO2_DO
 CH4_DO <- ggplot(dat, aes(DO_mg_L, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CH4_DO
 
-CO2_DO_sat <- ggplot(dat, aes(DO_., CO2_C_mg_m2_h)) + geom_point(colour= "#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + xlab("Dissolved oxygen (%)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") 
+tiff("CO2_DO_sat", units="in", width=4, height=4, res=300)
+CO2_DO_sat <- ggplot(subset(dat, site %in% upstream_sites), aes(DO_., CO2_C_mg_m2_h)) + geom_point(colour= "#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + xlab("Dissolved oxygen (%)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") 
 CO2_DO_sat
+dev.off()
 
-CH4_DO_sat <- ggplot(dat, aes(DO_., CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+tiff("CH4_DO_sat", units="in", width=4, height=4, res=300)
+CH4_DO_sat <- ggplot(subset(dat, site %in% downstream_sites), aes(DO_., CH4_C_mg_m2_h)) + geom_point(colour= "#862630", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#50161c") + xlab("Dissolved oxygen (%)") + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))
 CH4_DO_sat
+dev.off()
 
 CO2_pH <- ggplot(dat, aes(water_pH, CO2_C_mg_m2_h)) + geom_point(colour= "#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63")  + xlab("Water pH") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_pH
@@ -568,35 +687,108 @@ CO2_cond
 CH4_cond <- ggplot(dat, aes(water_conductivity_us_cm, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CH4_cond
 
-## GHG and canopy cover
+tiff("dist_cond", units="in", width=4, height=4, res=300)
+dist_cond <- ggplot(dat, aes(Distance_to_source_km, water_conductivity_us_cm, )) + geom_point(colour= "#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + xlab("Distance to source (km)") + ylab("Water conductivity (us/cm)")
+dist_cond
+dev.off()
 
-CO2_canopy <- ggplot(dat, aes(canopy_cover_., CO2_C_mg_m2_h)) + geom_point(size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) + facet_wrap(~ season, ncol = 1) 
+#### GHG and canopy cover ####
+tiff("CO2_canopy", units="in", width=4, height=4, res=300)
+CO2_canopy <- ggplot(subset(dat, site %in% downstream_sites), aes(canopy_cover_., CO2_C_mg_m2_h)) + geom_point(colour="#862630", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#50161c") + xlab("Canopy cover (%)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) 
 CO2_canopy
+dev.off()
 
-CH4_canopy <- ggplot(dat, aes(canopy_cover_., CH4_C_mg_m2_h)) + geom_point(size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black"))  +facet_wrap(~ season, ncol = 1) 
+tiff("CH4_canopy", units="in", width=4, height=4, res=300)
+CH4_canopy <- ggplot(subset(dat, site %in% upstream_sites), aes(canopy_cover_., CH4_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + xlab("Canopy cover (%)") +  ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))
 CH4_canopy
+dev.off()
 
-## Decomp 
+#### Decomposition #### 
 
-LML_fine <- ggplot(dat, aes(site, LML_fine)) +
-  geom_bar(stat = "identity", aes(fill = season)) +
-  theme_bw() +
-  theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_blank(), axis.ticks.x = element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 15), axis.text = element_text(size = 12, colour = "black"))
-LML_fine
+k_fine <- ggplot(dat, aes(Distance_to_source_km, k_dday_fine) ) +
+  geom_point(aes(colour=position), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(a) fine") +geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1) 
+k_fine
 
-LML_coarse<- ggplot(dat, aes(site, LML_coarse)) +
-  geom_bar(stat = "identity", aes(fill = season)) +
-  theme_bw() +
-  theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_blank(), axis.ticks.x = element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 15), axis.text = element_text(size = 12, colour = "black"))
-LML_coarse
+tiff("CO2_kcoarse", units="in", width=4, height=4, res=300)
+CO2_kcoarse <- ggplot(subset(dat, site %in% downstream_sites), aes(k_dday_coarse, CO2_C_mg_m2_h)) + geom_point(colour="#862630", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#50161c")+ xlab("k coarse (dday-1)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
+CO2_kcoarse
+dev.off()
 
-## OM 
+tiff("CO2_kfine", units="in", width=4, height=4, res=300)
+CO2_kfine <- ggplot(subset(dat, site %in% downstream_sites), aes(k_dday_fine, CO2_C_mg_m2_h)) + geom_point(colour="#862630", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#50161c")+ xlab("k fine (dday-1)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
+CO2_kfine
+dev.off()
 
-OM_stock <-  ggplot(dat, aes(wetted_width_m, OM_stock_g_m2)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) +   facet_wrap(~ season, ncol = 1)  # Facet by campaign
+
+k_coarse <- ggplot(dat, aes(Distance_to_source_km, k_dday_coarse) ) +
+  geom_point(aes(colour=position), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) coarse") + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1) 
+k_coarse
+
+tiff("k_fineOM", units="in", width=5, height=4, res=300)
+k_fineOM <- ggplot(dat, aes(sed_OM_percent, k_dday_fine) ) +
+  geom_point(aes(colour=position), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#f7921e")) + ylab(expression(paste(italic(k), " fine (", dday^-1, ")"))) + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1)  + xlab("Sediment OM (%)")
+k_fineOM
+dev.off()
+
+tiff("kcoarse_cond", units="in", width=5, height=4, res=300)
+kcoarse_cond <- ggplot(dat, aes(water_conductivity_us_cm, k_dday_coarse)) + geom_point(aes(colour=position), size=3.5, alpha=0.3) +  theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + ylab("k coarse (dday-1)") + scale_colour_manual(values=c("#91278e", "#f7921e")) + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1) + xlab("Water conductivity (us/cm)")
+kcoarse_cond
+dev.off()
+
+## Combine the k plots ##
+
+tiff("k_fine_coarse", units="in", width=4, height=6, res=300)
+
+k_fine_coarse <- ggarrange(k_fine + theme(axis.title.x = element_blank() ),  
+                           k_coarse, 
+                           ncol = 1, nrow = 2, align="hv",common.legend = T,legend="top")
+k_fine_coarse
+
+dev.off()
+
+
+
+#### OM #### 
+
+#CO2 vs OM flux #26867c
+
+tiff("CO2_OMflux", units="in", width=4, height=4, res=300)
+CO2_OMflux <- ggplot(subset(dat, site %in% upstream_sites), aes(OM_flux_g_m2_s, CO2_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", formula = y ~ x, se = F, size = 1, colour="#1e6b63") + xlab("OM flux (g/m2/s)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
+CO2_OMflux
+dev.off()
+
+
+tiff("CH4_OMstock", units="in", width=4, height=4, res=300)
+CH4_OMstock <- ggplot(subset(dat, site %in% upstream_sites), aes(OM_stock_g_m2, CH4_C_mg_m2_h)) + geom_point(colour="#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) +geom_smooth(method = "lm", se = F, size = 1, colour="#1e6b63") + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1)) + xlab("OM stock (g/m2)")
+CH4_OMstock
+dev.off()
+
+tiff("CH4_OMstock", units="in", width=4, height=4, res=300)
+CH4_OMstock <- ggplot(subset(dat, site %in% downstream_sites), aes(OM_stock_g_m2, CH4_C_mg_m2_h)) + geom_point(colour="#862630", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) +geom_smooth(method = "lm", se = F, size = 1, colour="#50161c") + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1)) + xlab("OM stock (g/m2)")
+CH4_OMstock
+dev.off()
+
+tiff("OM_stock", units="in", width=6, height=4, res=300)
+OM_stock <-  ggplot(dat, aes(Distance_to_source_km, log(OM_stock_g_m2) )) + geom_point(aes(colour=position, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + scale_colour_manual(values=c("#91278e", "#f7921e"))  + ylab(expression("log OM stock (g m"^{-2} * ")")) +
+  xlab("Distance to the source (km)") + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm",formula = y ~ log(x), se = F, aes(group = position, colour = position), size = 1)   
 OM_stock
+dev.off()
 
-OM_flux <-  ggplot(dat, aes(wetted_width_m, OM_flux_g_m2_s)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) +   facet_wrap(~ season, ncol = 1)  # Facet by campaign
+
+OM_flux <-  ggplot(dat, aes(Distance_to_source_km, OM_flux_g_m2_s)) + geom_point(aes(colour=position), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#f7921e")) +ylab(expression(paste("OM flux (g m"^{-2} * " s"^{-1} * ")"))) +  xlab("Distance to the source (km)") + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1)   +facet_wrap(~ season, ncol = 1) 
 OM_flux
+
+## Combine the OM plots ##
+
+tiff("OM_stock_flux", units="in", width=4, height=6, res=300)
+
+OM_stock_flux <- ggarrange(OM_stock + theme(axis.title.x = element_blank()),  
+                          OM_flux, 
+                          ncol = 1, nrow = 2, align="hv",common.legend = T,legend="top",  
+                          labels = c("(a)", "(b)"))
+OM_stock_flux
+
+dev.off()
 
 ## Combine plots for CO2 drivers from RF ##
 
@@ -712,14 +904,14 @@ OMsummer
 
 
 #plot 
-OMspring <-ggplot() + 
+OMfall <-ggplot() + 
   geom_sf(data = tarentaine_catch, fill = "lightblue", alpha = 0.3)+
   geom_sf(data = tarentaine) + 
-  geom_sf(data = sites_C1, aes(fill = OM_stock_g_m2, shape=flow_state),  size = 4, alpha = 0.3, colour="black") +
+  geom_sf(data = sites_C3, aes(fill = OM_stock_g_m2, shape=flow_state),  size = 4, alpha = 0.3, colour="black") +
   scale_shape_manual(values = c(21, 24)) +
   scale_fill_viridis_c(option="plasma", na.value="grey40", oob=scales::squish, direction = -1) +
   theme_classic()+ ggtitle("OM stock Fall") + xlab("Longitude") + ylab("Latitude") +  theme(plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 8), legend.position ="bottom",legend.text = element_text(size=8)) 
-
+OMfall
 
 ##############################################################################
 
@@ -918,154 +1110,1070 @@ ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
 
 
 ################################################################################
-#### Find best LMM and make predictions ####
-
-# Can make a model explaining GHG fluxes using all of the sites upstream of the two dams, then predict the CO2/CH4 values for downstream of the dams, and see if they differ from the actual measured values
-
-#Maybe first you can use RF to determine top drivers with a subset of the data set. 
-# sedOM%, DO%, water pH, water conductivity
+#### Test collinearity ####
 
 #Before running an LMM, need to test the predictors for multicollinearity
 
-# Check colinearity for CO2
-
-#remove irrelevant variables
-dat_lm <- dat %>% 
-  # filter(site %in% upstream_sites)  %>%
-  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -season, -bedrock, -pebble_gravel, -cobble, -position, -flow_state)
-
-
-#create a linear model with all of the data. 
-CO2_model <- lm(CO2_C_mg_m2_h~., data = dat_lm_CO2_up) #try with dat_colin to check if removal improved VIFs
-
-#Test tolerance and VIF. Tolerance measures the percent of the variance in the independent variable that cannot be accounted for by the other independent variables. The Variance Inflation Factor (VIF) measures the inflation in the coefficient of the independent variable due to the collinearities among the other independent variables (VIF>10 indicates multicollinearity).
-
-vif_df <-as.data.frame(ols_vif_tol(CO2_model))
-
-# Order the data frame by VIF values in decreasing order
-vif_df <- vif_df[order(vif_df$VIF, decreasing = TRUE), ]
-#Variables with VIF >10 are DO_mg_L, water_temp_C, dist_ds_dam_km, DO_., Distance_to_source_km, masl
-
-#We can remove DO_mg_L, as it has the highest VIF, and it is still represented in DO %
-#we can remove water_temp_C as it is represented in the iButton water temp
-#we can remove dist_ds_dam_km as it is represented in width and depth
-
-#rerun the ols_vif_tol analysis with these vars removed
-
-#now distance to source and masl are remaining, removed distance to source. 
-
-dat_colin <- dat %>% 
-  # filter(site %in% upstream_sites)  %>%
-  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -position)
-
-####################################################################################
-
-#### Run LMM for CO2 upstream ####
-
+# Check colinearity for CO2 
 #Subset just the upstream sites, TA06, TA11, TA07, TA08, TA12 and higher
-
 upstream_sites <- c("TA06", "TA11", "TA07", "TA08", "TA12", "TA13", "TA14", "TA15", "TA17", "TA20", "TA21", "TA22", "TA24", "TA02R")
 #15 sites
 downstream_sites <- c("TA04", "TA05", "TA09", "TA10", "TA01", "TA02", "TA03")
 #7 sites
 
-
-#Add back the non-numeric variables needed for the random effects
+#subset relevant columns and filter just the upstream/downstream sites
 dat_lm_CO2_up <- dat %>% 
   filter(site %in% upstream_sites)  %>%
-  select(-date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -position)
-#remove all of the variables that were identified by collinearity analysis
+  select(-site, -season, -date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position)
 
-#log trasnform CO2
-min(dat_lm_CO2_up$CO2_C_mg_m2_h) #-38.37704
-dat_lm_CO2_up$log_CO2_C_mg_m2_h <- log(dat_lm_CO2_up$CO2_C_mg_m2_h+39.37704)
+dat_lm_CH4_up <- dat %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-site, -season, -date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position)
 
-#scale the data
-dat_scaled <- dat_lm_CO2_up %>%
+
+dat_lm_CO2_down <- dat %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-site, -season, -date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position, -bedrock) #note bedrock is all 0 downstream, so remove
+
+dat_lm_CH4_down <- dat %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-site, -season, -date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position, -bedrock) #note bedrock is all 0 downstream, so remove
+
+dat_lm_OMstock_up <- dat_means %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-site, -season, -date,  -campaign, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position) #remove some of the water chem data as it does not make sense ecologically 
+
+dat_lm_OMstock_down <- dat_means %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-site, -season, -date,  -campaign, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position, -bedrock) #note to remove bedrock
+
+dat_lm_OMflux_up <- dat_means %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-site, -season, -date, -campaign, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position)
+
+dat_lm_OMflux_down <- dat_means %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-site, -season, -date, -campaign,  -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position, -bedrock) #note to remove bedrock
+
+dat_lm_kcoarse_up <- dat_means %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-site, -season, -date,  -campaign, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position)
+
+dat_lm_kcoarse_down <- dat_means %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-site, -season, -date, -campaign,  -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position, -bedrock, -DO_mg_L, -dist_ds_dam_km) #too many variables, need to remove some
+
+
+#create a linear model with all of the data. 
+CO2_model_collinearity <- lm(CO2_C_mg_m2_h~., data = dat_lm_CO2_up) 
+summary(CO2_model_collinearity)
+
+CH4_model_collinearity <- lm(CH4_C_mg_m2_h~., data = dat_lm_CH4_up) 
+summary(CH4_model_collinearity)
+
+CO2_model_collinearity_d <- lm(CO2_C_mg_m2_h~., data = dat_lm_CO2_down) 
+summary(CO2_model_collinearity_d)
+
+CH4_model_collinearity_d <- lm(CH4_C_mg_m2_h~., data = dat_lm_CH4_down) 
+summary(CH4_model_collinearity_d)
+
+OMstock_model_collinearity <- lm(OM_stock_g_m2 ~., data = dat_lm_OMstock_up) 
+summary(OMstock_model_collinearity)
+
+OMstock_model_collinearity_d <- lm(OM_stock_g_m2 ~., data = dat_lm_OMstock_down) 
+summary(OMstock_model_collinearity_d)
+
+OMflux_model_collinearity <- lm(OM_flux_g_m2_s ~., data = dat_lm_OMflux_up) 
+summary(OMflux_model_collinearity)
+
+OMflux_model_collinearity_d <- lm(OM_flux_g_m2_s ~., data = dat_lm_OMflux_down) 
+summary(OMflux_model_collinearity_d)
+
+k_coarse_model_collinearity <- lm(k_dday_coarse ~., data = dat_lm_kcoarse_up) 
+summary(k_coarse_model_collinearity)
+
+k_coarse_model_collinearity_d <- lm(k_dday_coarse ~., data = dat_lm_kcoarse_down) 
+summary(k_coarse_model_collinearity_d)
+
+
+#Test tolerance and VIF. Tolerance measures the percent of the variance in the independent variable that cannot be accounted for by the other independent variables. The Variance Inflation Factor (VIF) measures the inflation in the coefficient of the independent variable due to the collinearities among the other independent variables (VIF>10 indicates multicollinearity).
+
+vif_df <-as.data.frame(ols_vif_tol(CO2_model_collinearity))
+vif_df_d <-as.data.frame(ols_vif_tol(CO2_model_collinearity_d))
+vif_df_CH4 <-as.data.frame(ols_vif_tol(CH4_model_collinearity))
+vif_df_d_CH4 <-as.data.frame(ols_vif_tol(CH4_model_collinearity_d))
+vif_df_OMstock <-as.data.frame(ols_vif_tol(OMstock_model_collinearity))
+vif_df_OMstock_d <-as.data.frame(ols_vif_tol(OMstock_model_collinearity_d))
+vif_df_OMflux <-as.data.frame(ols_vif_tol(OMflux_model_collinearity))
+vif_df_OMflux_d <-as.data.frame(ols_vif_tol(OMflux_model_collinearity_d))
+vif_df_kcoarse <-as.data.frame(ols_vif_tol(k_coarse_model_collinearity))
+vif_df_kcoarse_d <-as.data.frame(ols_vif_tol(k_coarse_model_collinearity_d))
+
+# Order the data frame by VIF values in decreasing order
+
+vif_df <- vif_df[order(vif_df$VIF, decreasing = TRUE), ]
+#Variables with VIF >10 are DO_mg_L, water_temp_C, dist_ds_dam_km, DO_., Distance_to_source_km, masl
+#We can remove DO_mg_L, as it has the highest VIF, and it is still represented in DO %
+#we can remove water_temp_C as it is represented in the iButton water temp
+#we can remove dist_ds_dam_km as it is represented in width and depth and discharge and masl
+
+vif_df_d <- vif_df_d[order(vif_df_d$VIF, decreasing = TRUE), ]
+#variables with VIF >10 are dist_ds_dam_km, Distance_to_sourc_km, DO_mg_L, water_temp_C, masl, DO %, DailyMeanWaterTemp_C, OM_flux_g_m2_s, temp_C, fine_substrate, sed_OM_percent
+#We can remove dist_ds_dam_km and Distance_to_source_km as they are represented in masl
+#We can remove DO_mg_L, as it is still represented in DO %
+#we can remove water_temp_C as it is represented in the iButton DailyMeanWaterTemp_C
+#can remove air temperature (temp_C) as water temperature is more representative
+
+vif_df_CH4 <- vif_df_CH4[order(vif_df_CH4$VIF, decreasing = TRUE), ]
+#variables with VIF >10 are DO_mg_L, water_temp_C, DO_., dist_ds_dam_km, masl, Distance_to_source_km, #we can remove distance to dam and masl as they are represented in distance to source
+#We can remove water_temp_C as it's represented in DailyMeanWaterTemp_C
+
+vif_df_d_CH4 <- vif_df_d_CH4[order(vif_df_d_CH4$VIF, decreasing = TRUE), ]
+#variables with VIF >10 are dist_ds_dam_km, Distance_to_source_km, DO_mg_L, water_temp_C, masl, DO_., DailyMeanWaterTemp_C, OM_flux_g_m2_s, temp_C, fine_substrate, sed_OM_percent 
+#Can remove dist ds dam and dist to source because they are represented in masl
+#We can remove DO_mg_L, as it is still represented in DO %
+#we can remove water_temp_C as it is represented in the iButton DailyMeanWaterTemp_C
+#can remove temp_C, as it is represented in water temperature
+
+vif_df_OMstock <- vif_df_OMstock[order(vif_df_OMstock$VIF, decreasing = TRUE), ]
+# Variables with VIF >10 are DO_mg_L, water_temp_C, DO_., dist_ds_dam_km, masl, Distance_to_source_km, water_conductivity_us_cm 
+# Can remove DO_mg_L as it's represented in DO%
+# Can remove water temp C, is it's represented in DailyMeanWaterTemp
+#can remoce dist ds dam and masl is it's represented in distance to source
+
+vif_df_OMstock_d <- vif_df_OMstock_d[order(vif_df_OMstock_d$VIF, decreasing = TRUE), ]
+# Variables with VIF >10 are dist_ds_dam_km, Distance_to_source_km, masl, DO_mg_L, water_temp_C, DO_., DailyMeanWaterTemp_C, OM_flux_g_m2_s, fine_substrate, temp_C, sed_OM_percent 
+#Can remove dist ds dam and dist to source, as it's represented in masl
+#Can remove DO_mg_L as it's represented in DO%
+# Can remove water temp C as it's represented in Daily mean water temp
+
+vif_df_OMflux <- vif_df_OMflux[order(vif_df_OMflux$VIF, decreasing = TRUE), ]
+# Variables with VIF >10 are DO_mg_L, water_temp_C, DO_., dist_ds_dam_km, masl, Distance_to_source_km, water_conductivity_us_cm 
+# Can remove DO_mg_L as it's represented in DO%
+# Can remove water temp C as it's represented in Daily mean water temp
+#Can remove dist ds dam and masl, as it's represented in dist to source
+
+vif_df_OMflux_d <- vif_df_OMflux_d[order(vif_df_OMflux_d$VIF, decreasing = TRUE), ]
+# Variables with VIF >10 are dist_ds_dam_km Distance_to_source_km masl DO_mg_L water_temp_C DailyMeanWaterTemp_C DO_. temp_C fine_substrate 
+#Can remove dist_ds_dam_km and Distance_to_source_km as they are represented in masl
+# Can remove DO_mg_L as it's represented in DO%
+# Can remove water temp C as it's represented in Daily mean water temp
+
+vif_df_kcoarse <- vif_df_kcoarse[order(vif_df_kcoarse$VIF, decreasing = TRUE), ]
+# Variables with VIF >10 are DO_mg_L water_temp_C DO_. dist_ds_dam_km Distance_to_source_km masl discharge_m3_s wetted_width_m water_conductivity_us_cm mean_velocity_m_s 
+# Can remove DO_mg_L as it's represented in DO%
+# Can remove water temp C as it's represented in Daily mean water temp
+#Can remove dist_ds_dam_km and distance to source as it's represented in masl
+
+vif_df_kcoarse_d <- vif_df_kcoarse_d[order(vif_df_kcoarse_d$VIF, decreasing = TRUE), ]
+#Many vars are >10 VIF
+#remove distance to source
+#remove fine substrate
+#remove DailyMeanWaterTemp_C 
+
+#### Rerun the ols_vif_tol analysis with these vars removed ####
+
+dat_colin <- dat %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -position)
+
+dat_colin_d <- dat %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -bedrock, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -temp_C, -fine_substrate)
+
+dat_colinCH4 <- dat %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -masl, -position)
+
+dat_colin_d_CH4 <- dat %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -bedrock, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -temp_C)
+
+dat_colin_OMstock <- dat_means %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-date, -site, -campaign, -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -masl)
+
+dat_colin_OMstock_d <- dat_means %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-date, -site, -campaign,  -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -bedrock, -DailyMeanWaterTemp_C)
+
+dat_colin_OMflux <- dat_means %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-date, -site,   -campaign,  -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -masl)
+
+dat_colin_OMflux_d <- dat_means %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-date, -site,  -campaign, -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -bedrock, -DailyMeanWaterTemp_C)
+
+dat_colin_OMflux <- dat_means %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-date, -site,  -campaign, -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -masl)
+
+dat_colin_kcoarse <- dat_means %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-site, -season, -date,  -campaign, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -discharge_m3_s)
+
+dat_colin_kcoarse_d <- dat_means %>% 
+    filter(site %in% downstream_sites)  %>%
+    select(-site, -season, -date,  -campaign, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -DailyMeanWaterTemp_C, -fine_substrate, -bedrock, -mean_velocity_m_s, -mean_depth_cm)
+
+
+#Try again
+
+#create a linear model with all of the data. #try with dat_colin to check if removal improved VIFs
+CO2_model_collinearity2 <- lm(CO2_C_mg_m2_h~., data = dat_colin) 
+summary(CO2_model_collinearity2)
+
+CO2_model_collinearity2_d <- lm(CO2_C_mg_m2_h~., data = dat_colin_d) 
+summary(CO2_model_collinearity2_d)
+
+CH4_model_collinearity2 <- lm(CH4_C_mg_m2_h~., data = dat_colinCH4) 
+summary(CH4_model_collinearity2)
+
+CH4_model_collinearity2_d_CH4 <- lm(CH4_C_mg_m2_h~., data = dat_colin_d_CH4) 
+summary(CH4_model_collinearity2_d_CH4)
+
+OMstock_model_collinearity2 <- lm(OM_stock_g_m2~., data = dat_colin_OMstock) 
+summary(OMstock_model_collinearity2)
+
+OMstock_d_model_collinearity2 <- lm(OM_stock_g_m2~., data = dat_colin_OMstock_d) 
+summary(OMstock_d_model_collinearity2)
+
+OMflux_model_collinearity2 <- lm(OM_stock_g_m2~., data = dat_colin_OMflux) 
+summary(OMflux_model_collinearity2)
+
+OMflux_d_model_collinearity2 <- lm(OM_stock_g_m2~., data = dat_colin_OMflux_d) 
+summary(OMflux_d_model_collinearity2)
+
+kcoarse_model_collinearity2 <- lm(k_dday_coarse~., data = dat_colin_kcoarse) 
+summary(kcoarse_model_collinearity2)
+
+kcoarse_d_model_collinearity2 <- lm(k_dday_coarse~., data = dat_colin_kcoarse_d) 
+summary(kcoarse_d_model_collinearity2)
+
+#Test tolerance and VIF. Tolerance measures the percent of the variance in the independent variable that cannot be accounted for by the other independent variables. The Variance Inflation Factor (VIF) measures the inflation in the coefficient of the independent variable due to the collinearities among the other independent variables (VIF>10 indicates multicollinearity).
+
+vif_df <-as.data.frame(ols_vif_tol(CO2_model_collinearity2))
+vif_df_d <-as.data.frame(ols_vif_tol(CO2_model_collinearity2_d))
+vif_dfCH4 <-as.data.frame(ols_vif_tol(CH4_model_collinearity2))
+vif_df_d_CH4 <-as.data.frame(ols_vif_tol(CH4_model_collinearity2_d_CH4))
+vif_df_OMstock <-as.data.frame(ols_vif_tol(OMstock_model_collinearity2))
+vif_df_OMstock_d <-as.data.frame(ols_vif_tol(OMstock_d_model_collinearity2))
+vif_df_OMflux <-as.data.frame(ols_vif_tol(OMflux_model_collinearity2))
+vif_df_OMflux_d <-as.data.frame(ols_vif_tol(OMflux_d_model_collinearity2))
+vif_df_kcoarse <-as.data.frame(ols_vif_tol(kcoarse_model_collinearity2))
+vif_df_kcoarse_d <-as.data.frame(ols_vif_tol(kcoarse_d_model_collinearity2))
+
+# Order the data frame by VIF values in decreasing order
+vif_df <- vif_df[order(vif_df$VIF, decreasing = TRUE), ] #good! 
+vif_df_d <- vif_df_d[order(vif_df_d$VIF, decreasing = TRUE), ] #good!
+vif_dfCH4 <- vif_dfCH4[order(vif_dfCH4$VIF, decreasing = TRUE), ] #good!
+vif_df_d_CH4 <- vif_df_d_CH4[order(vif_df_d_CH4$VIF, decreasing = TRUE), ] #good!
+vif_df_OMstock <- vif_df_OMstock[order(vif_df_OMstock$VIF, decreasing = TRUE), ] #good!
+vif_df_OMstock_d <- vif_df_OMstock_d[order(vif_df_OMstock_d$VIF, decreasing = TRUE), ] #remove DailyMeanWaterTemp_C, good!
+vif_df_OMflux <- vif_df_OMflux[order(vif_df_OMflux$VIF, decreasing = TRUE), ] #good!
+vif_df_OMflux_d <- vif_df_OMflux_d[order(vif_df_OMflux_d$VIF, decreasing = TRUE), ] #remove DailyMeanWaterTemp_C, good!
+vif_df_kcoarse <-  vif_df_kcoarse[order(vif_df_kcoarse$VIF, decreasing = TRUE), ] #remove discharge
+vif_df_kcoarse_d <- vif_df_kcoarse_d[order(vif_df_kcoarse_d$VIF, decreasing = TRUE), ] #remove mean_velocity_m_s and mean_depth_cm 
+
+####################################################################################
+
+#### Run LMM for CO2 upstream ####
+
+#Use the dataset with the covarying variables removed, but add site and season back in 
+dat_lm_CO2_up <- dat %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state,  -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -position)
+
+
+#scale the datam except for CO2
+dat_lm_CO2_up_scaled <- dat_lm_CO2_up %>%
   select(-CO2_C_mg_m2_h) %>%
   mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
 
+# Add the CO2 column back
+dat_scaled_up <- cbind(dat_lm_CO2_up_scaled, CO2_C_mg_m2_h = dat_lm_CO2_up$CO2_C_mg_m2_h)
+
 #start with a saturated model 
-CO2_lmer <- lmer(log_CO2_C_mg_m2_h ~ . - site - season +  (1 + season | site), data = dat_scaled)
+CO2_lmer <- lmer( log(CO2_C_mg_m2_h+16.3819) ~  water_pH + water_conductivity_us_cm + DO_. + canopy_cover_. +  wetted_width_m+ discharge_m3_s + mean_velocity_m_s + mean_depth_cm + k_dday_coarse + k_dday_fine + season*OM_stock_g_m2+ season*OM_flux_g_m2_s + sed_OM_percent + temp_C + DailyMeanWaterTemp_C + masl + bedrock + fine_substrate +  (1 + season | site), data = dat_scaled_up)
 
 summary(CO2_lmer) 
 
 plot(CO2_lmer) #log transforming gets rid of the fan shape
-qqnorm(resid(CO2_lmer)) #1, maybe 4 outliers
+qqnorm(resid(CO2_lmer)) #maybe 2 outliers?
 
 #Check outliers with Cook's Distance
 cooksD <- cooks.distance(CO2_lmer) #run the model with dat_sub first
 influential <- cooksD[(cooksD > (15* mean(cooksD, na.rm = TRUE)))]
-influential #102, 134, 309, 310
+influential #60, 67
 
-n <- nrow(dat_scaled)
+n <- nrow(dat_scaled_up)
 plot(cooksD, main = "Cooks Distance for Influential Obs")
 abline(h = 28/n, lty = 2, col = "steelblue") # add cutoff line
 
 names_of_influential <- names(influential)
 outliers <- dat_scaled[names_of_influential,]
-dat_scaled_out <- dat_scaled %>% anti_join(outliers)
+dat_scaled_up_out <- dat_scaled_up %>% anti_join(outliers)
 
 #Run again with outliers removed
 
-#dredge doesn't like the '.' in the formula, so put in all of the columns...
-names(dat_scaled)[sapply(dat_scaled_out, is.numeric)]
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_scaled_up_out)[sapply(dat_scaled_up_out, is.numeric)]
 
 #Saturated model 
-CO2_lmer <- lmer(log_CO2_C_mg_m2_h ~ 
-                   water_pH + water_conductivity_us_cm+DO_.+canopy_cover_.+  wetted_width_m+discharge_m3_s+mean_velocity_m_s+mean_depth_cm+k_dday_coarse+k_dday_fine+OM_stock_g_m2+OM_flux_g_m2_s+sed_OM_percent+temp_C+DailyMeanWaterTemp_C+masl+bedrock+fine_substrate+
-                   (1 + season | site), data = dat_scaled_out)
+CO2_lmer_sat <- lmer( log(CO2_C_mg_m2_h +16.3819) ~ 
+                   water_pH + water_conductivity_us_cm + DO_. + canopy_cover_. +  wetted_width_m+ discharge_m3_s + mean_velocity_m_s + mean_depth_cm + k_dday_coarse + k_dday_fine + OM_stock_g_m2+ OM_flux_g_m2_s + sed_OM_percent + temp_C + DailyMeanWaterTemp_C + masl + bedrock + fine_substrate +
+                   (1 + season | site), data = dat_scaled_up_out)
 
-summary(CO2_lmer) #This model is too big for dredge maybe?
+summary(CO2_lmer_sat) 
 
-vif <- car::vif(CO2_lmer) #all under 10
+car::vif(CO2_lmer_sat) #all under 10
 
-plot(CO2_lmer) #Looks absolutely perfecto with log transformation and 4 outliers removed. log transforming gets rid of the fan shape
-qqnorm(resid(CO2_lmer)) #4 outliers removed
+plot(CO2_lmer_sat) #Looks absolutely perfecto with log transformation and 2 outliers removed. log transforming gets rid of the fan shape
+qqnorm(resid(CO2_lmer_sat)) #2 outliers removed
 
-#Dredge is not working, too many variables I think, so try stepwise model selection
+#Dredge is not working, too many variables I think, 
+## try stepwise model selection ##
 
-lmerTest::step(CO2_lmer)
+lmerTest::step(CO2_lmer_sat)
 
 #Model found:
-#log_CO2_C_mg_m2_h ~ DO_. + discharge_m3_s + mean_velocity_m_s + OM_flux_g_m2_s + (1 + season | site)
+#log(CO2_C_mg_m2_h + 16.3819) ~ DO_. + mean_velocity_m_s + mean_depth_cm + OM_flux_g_m2_s + (1 + season | site)
 
-#use dredge to find best model
-#subset just the upstream sites, find best model, and predict downstream sites
+# run the model 
 
+CO2_lmer_up <- lmer( log(CO2_C_mg_m2_h +16.3819)~ DO_. + mean_velocity_m_s + mean_depth_cm + OM_flux_g_m2_s + (1 + season | site), data = dat_scaled_up_out)
+
+summary(CO2_lmer_up) 
+plot(CO2_lmer_up)
+qqnorm(resid(CO2_lmer_up))
+vif(CO2_lmer_up) #no issues, all around 1
+r.squaredGLMM(CO2_lmer_up) #0.12 marginal, 0.79 conditional
+
+
+####################################################################################
+
+#### Run LMM for CO2 downstream ####
+
+#Use the dataset with the covarying variables removed, but add site and season back in 
+dat_lm_CO2_d <- dat %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -bedrock, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -temp_C, fine_substrate)
+
+
+#scale the data, except for CO2
+dat_lm_CO2_d_scaled <- dat_lm_CO2_d %>%
+  select(-CO2_C_mg_m2_h) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the CO2 column back
+dat_scaled_d <- cbind(dat_lm_CO2_d_scaled, CO2_C_mg_m2_h = dat_lm_CO2_d$CO2_C_mg_m2_h)
+
+#start with a saturated model 
+min(dat_scaled_d$CO2_C_mg_m2_h) #-38.37704
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_scaled_d)[sapply(dat_scaled_d, is.numeric)]
+
+CO2_lmer_d_sat <- lmer(CO2_C_mg_m2_h ~ 
+    water_pH +  water_conductivity_us_cm + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s +      mean_velocity_m_s + mean_depth_cm + k_dday_coarse + k_dday_fine + OM_stock_g_m2 + OM_flux_g_m2_s +     sed_OM_percent + DailyMeanWaterTemp_C + masl   
+              +  (1 + season | site), data = dat_scaled_d)
+summary(CO2_lmer_d_sat)
+
+plot(CO2_lmer_d_sat) #look good, no need to log transform
+qqnorm(resid(CO2_lmer_d_sat)) #maybe one outlier?
+vif(CO2_lmer_d_sat) #remove fine substrate, at 18
+
+#Check outliers with Cook's Distance
+cooksD <- cooks.distance(CO2_lmer_d_sat) #run the model with dat_sub first
+influential <- cooksD[(cooksD > (15* mean(cooksD, na.rm = TRUE)))]
+influential #74
+
+n <- nrow(dat_scaled_d)
+plot(cooksD, main = "Cooks Distance for Influential Obs")
+abline(h = 28/n, lty = 2, col = "steelblue") # add cutoff line
+
+names_of_influential <- names(influential)
+outliers <- dat_scaled_d[names_of_influential,]
+dat_scaled_d_out <- dat_scaled_d %>% anti_join(outliers)
+
+#Run again with outliers removed
+
+CO2_lmer_d_sat2 <- lmer(CO2_C_mg_m2_h ~ 
+                         water_pH +  water_conductivity_us_cm + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s +  mean_velocity_m_s + mean_depth_cm + k_dday_coarse + k_dday_fine + OM_stock_g_m2 + OM_flux_g_m2_s + sed_OM_percent + DailyMeanWaterTemp_C + masl        
+                       +  (1 + season | site), data = dat_scaled_d_out)
+summary(CO2_lmer_d_sat2)
+plot(CO2_lmer_d_sat2) 
+qqnorm(resid(CO2_lmer_d_sat2)) #improved with outlier removed
+
+
+#run stepwise model selection
+lmerTest::step(CO2_lmer_d_sat2)
+
+#Model found:
+#CO2_C_mg_m2_h ~ canopy_cover_. + discharge_m3_s + mean_velocity_m_s + k_dday_coarse + k_dday_fine + (1 + season | site)
+
+#run the model
+
+CO2_lmer_d <- lmer(CO2_C_mg_m2_h ~ canopy_cover_. + discharge_m3_s + mean_velocity_m_s + k_dday_coarse + k_dday_fine +  (1 + season | site) + (1 + season | site), data = dat_scaled_d)
+
+summary(CO2_lmer_d)
+plot(CO2_lmer_d) 
+qqnorm(resid(CO2_lmer_d))
+
+##############################################################################
+
+#### Run LMM for CH4 upstream ####
+
+#Use the dataset with the covarying variables removed, but add site and season back in 
+dat_lm_CH4_up <- dat %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -masl, -position)
+
+
+#scale the data except for CH4
+dat_lm_CH4_up_scaled <- dat_lm_CH4_up %>%
+  select(-CH4_C_mg_m2_h) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the CH4 column back
+dat_scaled_up_CH4 <- cbind(dat_lm_CH4_up_scaled, CH4_C_mg_m2_h = dat_lm_CH4_up$CH4_C_mg_m2_h)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_scaled_up_CH4)[sapply(dat_scaled_up_CH4, is.numeric)]
+
+#start with a saturated model 
+min(dat_scaled_up_CH4$CH4_C_mg_m2_h)
+
+CH4_lmer <- lmer((CH4_C_mg_m2_h^(1/3)) ~  #log(CH4_C_mg_m2_h + 1.02248368)
+water_pH + water_conductivity_us_cm + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm + k_dday_coarse + k_dday_fine + OM_stock_g_m2 + OM_flux_g_m2_s +     sed_OM_percent + temp_C + DailyMeanWaterTemp_C + Distance_to_source_km + bedrock + fine_substrate  +  (1 + season | site), data = dat_scaled_up_CH4)
+
+summary(CH4_lmer) 
+
+plot(CH4_lmer) #cube root transformation improves the fan shape the most (from log and square root)
+qqnorm(resid(CH4_lmer)) #1 or 2 outliers
+
+#Check outliers with Cook's Distance
+cooksD <- cooks.distance(CH4_lmer) #run the model with dat_sub first
+influential <- cooksD[(cooksD > (15* mean(cooksD, na.rm = TRUE)))]
+influential #173, 194
+
+n <- nrow(dat_scaled_up_CH4)
+plot(cooksD, main = "Cooks Distance for Influential Obs")
+abline(h = 28/n, lty = 2, col = "steelblue") # add cutoff line
+
+names_of_influential <- names(influential)
+outliers <- dat_scaled_up_CH4[names_of_influential,]
+dat_scaled_up_CH4_out <- dat_scaled_up_CH4 %>% anti_join(outliers)
+
+#Run again with outliers removed
+
+#Saturated model 
+CH4_lmer_sat <- lmer((CH4_C_mg_m2_h^(1/3)) ~  #log(CH4_C_mg_m2_h + 1.02248368)
+                       water_pH + water_conductivity_us_cm + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm + k_dday_coarse + k_dday_fine + OM_stock_g_m2 + OM_flux_g_m2_s +     sed_OM_percent + temp_C + DailyMeanWaterTemp_C + Distance_to_source_km + bedrock + fine_substrate  +  (1 + season | site), data = dat_scaled_up_CH4_out)
+
+summary(CH4_lmer_sat) 
+
+plot(CH4_lmer_sat) #Improves the fan shape
+qqnorm(resid(CH4_lmer_sat)) #2 outliers removed
+car::vif(CH4_lmer_sat) #all under 10
+
+#run stepwise model selection
+lmerTest::step(CH4_lmer_sat)
+
+#Model found:
+#(CH4_C_mg_m2_h^(1/3)) ~ canopy_cover_. + mean_depth_cm + OM_stock_g_m2 + sed_OM_percent + temp_C + Distance_to_source_km + (1 + season | site)
+
+#run the model
+
+CH4_lmer_up <- lmer( (CH4_C_mg_m2_h^(1/3)) ~ canopy_cover_. + mean_depth_cm + OM_stock_g_m2 + sed_OM_percent + temp_C + Distance_to_source_km +  (1 + season | site) + (1 + season | site), data = dat_scaled_up_CH4_out)
+
+summary(CH4_lmer_up)
+plot(CH4_lmer_up) 
+qqnorm(resid(CH4_lmer_up))
+
+####################################################################################
+
+#### Run LMM for CH4 downstream ####
+
+#Use the dataset with the covarying variables removed, but add site and season back in 
+dat_lm_CH4_d <- dat %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -flow_state, -cobble, -boulder, -bedrock, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -temp_C)
+
+#scale the data, except for CH4
+dat_lm_CH4_d_scaled <- dat_lm_CH4_d %>%
+  select(-CH4_C_mg_m2_h) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the CH4 column back
+dat_scaled_d_CH4 <- cbind(dat_lm_CH4_d_scaled, CH4_C_mg_m2_h = dat_lm_CH4_d$CH4_C_mg_m2_h)
+
+#start with a saturated model 
+min(dat_scaled_d_CH4$CH4_C_mg_m2_h) #-0.003544475
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_scaled_d_CH4)[sapply(dat_scaled_d_CH4, is.numeric)]
+
+min(dat_scaled_d_CH4$CH4_C_mg_m2_h)
+
+CH4_lmer_d_sat <- lmer((CH4_C_mg_m2_h^(1/3))  ~ water_pH + water_conductivity_us_cm + DO_. +  canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm + k_dday_coarse + k_dday_fine + OM_stock_g_m2 + OM_flux_g_m2_s + sed_OM_percent + DailyMeanWaterTemp_C + masl + (1 + season | site), data = dat_scaled_d_CH4)
+
+summary(CH4_lmer_d_sat)
+
+plot(CH4_lmer_d_sat) #log transforming improves residuals, but still not perfect, bu square root transformation is better 
+qqnorm(resid(CH4_lmer_d_sat)) #maybe 3 outliers
+vif(CH4_lmer_d_sat) #remove fine substrate *=(VIF of 12)
+
+
+#Check outliers with Cook's Distance
+cooksD <- cooks.distance(CH4_lmer_d_sat) #run the model with dat_sub first
+influential <- cooksD[(cooksD > (8* mean(cooksD, na.rm = TRUE)))]
+influential #22 , 74, 66
+
+n <- nrow(dat_scaled_d_CH4)
+plot(cooksD, main = "Cooks Distance for Influential Obs")
+abline(h = 15/n, lty = 2, col = "steelblue") # add cutoff line
+
+names_of_influential <- names(influential)
+outliers <- dat_scaled_d_CH4[names_of_influential,]
+dat_scaled_d_CH4_out <- dat_scaled_d_CH4 %>% anti_join(outliers)
+
+#rerun with outliers removed
+CH4_lmer_d <- lmer((CH4_C_mg_m2_h^(1/3))  ~ water_pH + water_conductivity_us_cm + DO_. +  canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm + k_dday_coarse + k_dday_fine + OM_stock_g_m2 + OM_flux_g_m2_s + sed_OM_percent + DailyMeanWaterTemp_C + masl + (1 + season | site), data = dat_scaled_d_CH4_out)
+
+summary(CH4_lmer_d)
+plot(CH4_lmer_d)
+qqnorm(resid(CH4_lmer_d)) 
+
+#Run model selection
+
+#run stepwise model selection
+lmerTest::step(CH4_lmer_d)
+
+#Model found:
+#(CH4_C_mg_m2_h^(1/3)) ~ DO_. + discharge_m3_s + mean_velocity_m_s + OM_stock_g_m2 + (1 + season | site)
+
+#Run the model
+
+CH4lmer_down <- lmer( (CH4_C_mg_m2_h^(1/3)) ~ DO_. + discharge_m3_s + mean_velocity_m_s + OM_stock_g_m2 + (1 + season | site),
+data = dat_scaled_d_CH4_out)
+
+summary(CH4lmer_down)
+plot(CH4lmer_down)
+qqnorm(resid(CH4lmer_down))
+vif(CH4lmer_down)
+
+####################################################################################
+
+#### Run LMM for OM stock upstream ####
+
+#Use the dataset with the covarying variables removed, but add site and season back in 
+#consider the ecology, water physicochemistry are not likely drivers, select only plausible drivers
+#note we can use the site averages here 
+dat_lm_OMstock <- dat_means %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-date, -campaign, -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state,  -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -masl, -water_pH, -water_conductivity_us_cm, -sed_OM_percent, -DailyMeanWaterTemp_C, -DO_., -bedrock, -fine_substrate, -k_dday_fine, -k_dday_coarse)
+
+#scale the data, except for CH4
+dat_lm_OMstock_scaled <- dat_lm_OMstock %>%
+  select(-OM_stock_g_m2) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the OM stock column back
+dat_lm_OMstock_scaled <- cbind(dat_lm_OMstock_scaled, OM_stock_g_m2 = dat_lm_OMstock$OM_stock_g_m2)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_lm_OMstock_scaled)[sapply(dat_lm_OMstock_scaled, is.numeric)]
+
+
+OMstock_lmer_sat <- lmer( OM_stock_g_m2 ~ season + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm +   OM_flux_g_m2_s  + temp_C + Distance_to_source_km +  dist_ds_dam_km +   (1 | site), data = dat_lm_OMstock_scaled)
+
+summary(OMstock_lmer_sat)
+
+plot(CH4_lmer_d_sat) # log and cube root transformation does not improve residuals
+qqnorm(resid(CH4_lmer_d_sat)) # 2 or 3 outliers
+vif(OMstock_lmer_sat) #all <10
+
+#Check outliers with Cook's Distance
+cooksD <- cooks.distance(OMstock_lmer_sat) #run the model with dat_sub first
+influential <- cooksD[(cooksD > (8* mean(cooksD, na.rm = TRUE)))]
+influential #60, 77
+
+n <- nrow(dat_scaled_d_CH4)
+plot(cooksD, main = "Cooks Distance for Influential Obs")
+abline(h = 15/n, lty = 2, col = "steelblue") # add cutoff line
+
+names_of_influential <- names(influential)
+outliers <- dat_lm_OMstock_scaled[names_of_influential,]
+dat_lm_OMstock_scaled_out <- dat_lm_OMstock_scaled %>% anti_join(outliers)
+
+#Rerun with outliers removed
+
+OMstock_lmer <- lmer( OM_stock_g_m2 ~ season + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm +   OM_flux_g_m2_s  + temp_C + Distance_to_source_km +  dist_ds_dam_km +   (1 | site), data = dat_lm_OMstock_scaled_out)
+
+summary(OMstock_lmer)
+
+plot(OMstock_lmer) # better
+qqnorm(resid(OMstock_lmer)) # better
+vif(OMstock_lmer) #all <10
+
+#run stepwise model selection
+lmerTest::step(OMstock_lmer)
+
+#Model found:
+#OM_stock_g_m2 ~ wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm + OM_flux_g_m2_s + (1 | site)
+
+#Run the model
+OMstock_lmer2 <- lmer( OM_stock_g_m2 ~ discharge_m3_s + mean_velocity_m_s + OM_flux_g_m2_s + Distance_to_source_km + (1 | site), data = dat_lm_OMstock_scaled_out)
+
+summary(OMstock_lmer2)
+plot(OMstock_lmer2)
+qqnorm(resid(OMstock_lmer2)) 
+vif(OMstock_lmer2)
+
+
+####################################################################################
+
+#### Run LMM for OM stock downstream ####
+
+#Use the dataset with the covarying variables removed, but add site and season back in 
+#consider the ecology, water physicochemistry are not likely drivers, select only plausible drivers
+dat_lm_OMstock_d <- dat_means %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-date,   -campaign,  -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state,  -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -masl, -water_pH, -water_conductivity_us_cm, -sed_OM_percent, -DailyMeanWaterTemp_C, -DO_., -bedrock, -fine_substrate, -bedrock, -k_dday_coarse, -k_dday_fine)
+
+#scale the data, except for CH4
+dat_lm_OMstock_d_scaled <- dat_lm_OMstock_d %>%
+  select(-OM_stock_g_m2) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the OM stock column back
+dat_lm_OMstock_d_scaled <- cbind(dat_lm_OMstock_d_scaled, OM_stock_g_m2 = dat_lm_OMstock_d$OM_stock_g_m2)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_lm_OMstock_d_scaled)[sapply(dat_lm_OMstock_d_scaled, is.numeric)]
+
+
+OMstock_d_lmer_sat <- lmer( log(OM_stock_g_m2) ~ canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm +   OM_flux_g_m2_s  + temp_C +  dist_ds_dam_km +   (1 | site), data = dat_lm_OMstock_d_scaled)
+
+summary(OMstock_d_lmer_sat)
+
+plot(OMstock_d_lmer_sat) # OK
+qqnorm(resid(OMstock_d_lmer_sat)) # OK
+vif(OMstock_d_lmer_sat) # remove distance to source and season
+
+
+#run stepwise model selection
+lmerTest::step(OMstock_d_lmer_sat)
+
+#Model found:
+ # log(OM_stock_g_m2) ~ mean_velocity_m_s
+
+#Run the selected model
+
+OMstock_d_lmer <- lmer( log(OM_stock_g_m2) ~  mean_velocity_m_s +  (1 | site), data = dat_lm_OMstock_d_scaled)
+
+summary(OMstock_d_lmer)
+plot(OMstock_d_lmer) # OK
+qqnorm(resid(OMstock_d_lmer)) #OK 
+
+
+###############################################################################
+#### Run LMM for OM stock all sites ####
+
+#include all variables for now, remove via VIF later
+#exclude ecologically implausible predictors, like water chemistry
+dat_lm_OMstock_all <- dat_means %>% 
+  select(-date,   -campaign,  -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state,  -cobble, -boulder, -pebble_gravel, -water_pH, -water_conductivity_us_cm, -sed_OM_percent, -fine_substrate, -k_dday_coarse, -k_dday_fine, -bedrock, -mean_velocity_m_s)
+
+#scale the data, except for CH4
+dat_lm_OMstock_all_scaled <- dat_lm_OMstock_all %>%
+  select(-OM_stock_g_m2) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the OM stock column back
+dat_lm_OMstock_all_scaled <- cbind(dat_lm_OMstock_all_scaled, OM_stock_g_m2 = dat_lm_OMstock_all$OM_stock_g_m2)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_lm_OMstock_all_scaled)[sapply(dat_lm_OMstock_all_scaled, is.numeric)]
+
+OMstock_lmer_sat <- lmer(log(OM_stock_g_m2) ~ season +  water_temp_C + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s +  mean_depth_cm + OM_flux_g_m2_s + temp_C + position*masl  +  (1 | site), data = dat_lm_OMstock_all_scaled)
+
+summary(OMstock_lmer_sat)
+
+plot(OMstock_lmer_sat) # log transforming improves residuals
+qqnorm(resid(OMstock_lmer_sat)) # OK
+vif(OMstock_lmer_sat) # remove DO_mg_L, dist_ds_dam_km, DailyMeanWaterTemp_C, Distance_to_source_km
+
+#Run stepwise model selection
+lmerTest::step(OMstock_lmer_sat)
+
+#Model found:
+#log(OM_stock_g_m2) ~ season + wetted_width_m + mean_depth_cm + temp_C + (1 | site)
+
+#Run top model
+
+OMstock_lmer <- lmer(log(OM_stock_g_m2) ~ season + wetted_width_m + mean_depth_cm + temp_C +  (1 | site), data = dat_lm_OMstock_all_scaled)
+
+summary(OMstock_lmer)
+plot(OMstock_lmer) # 
+qqnorm(resid(OMstock_lmer)) # 
+vif(OMstock_lmer) #
+
+# run model with just distance to dam
+
+OMstock_dam <- lmer(log(OM_stock_g_m2) ~ position*dist_ds_dam_km*season + (1 | site), data = dat_lm_OMstock_all_scaled)
+summary(OMstock_dam)
+plot(OMstock_dam) # log transforming improves residuals
+qqnorm(resid(OMstock_dam)) # 
+vif(OMstock_dam)
+
+###############################################################################
+#### Run LMM for OM flux all sites ####
+
+#include all variables for now, remove via VIF later
+#exclude ecologically implausible predictors, like water chemistry
+dat_lm_OMflux_all <- dat_means %>% 
+  select(-date,   -campaign,  -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state,  -cobble, -boulder, -pebble_gravel, -water_pH, -water_conductivity_us_cm, -sed_OM_percent, -fine_substrate, -k_dday_coarse, -k_dday_fine, -bedrock, -mean_velocity_m_s)
+
+#scale the data, except for CH4
+dat_lm_OMflux_all_scaled <- dat_lm_OMflux_all %>%
+  select(-OM_flux_g_m2_s) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the OM stock column back
+dat_lm_OMflux_all_scaled <- cbind(dat_lm_OMflux_all_scaled, OM_flux_g_m2_s = dat_lm_OMflux_all$OM_flux_g_m2_s)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_lm_OMflux_all_scaled)[sapply(dat_lm_OMflux_all_scaled, is.numeric)]
+
+OMflux_lmer_sat <- lmer(log(OM_flux_g_m2_s) ~ season + water_temp_C + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_depth_cm + OM_stock_g_m2 + temp_C +  position*masl + 
+                          (1 | site), data = dat_lm_OMflux_all_scaled)
+
+summary(OMflux_lmer_sat)
+
+plot(OMflux_lmer_sat) # pattern improved by log transformation
+qqnorm(resid(OMflux_lmer_sat)) # OK
+vif(OMflux_lmer_sat) #remove DO_mg_L, dist_ds_dam_km, DailyMeanWaterTemp_C                       
+
+#Run stepwise model selection
+lmerTest::step(OMflux_lmer_sat)
+
+#Model found:
+#log(OM_flux_g_m2_s) ~ season + DO_. + mean_depth_cm + position
+
+#run top model
+
+OMflux_lmer <- lmer(log(OM_flux_g_m2_s) ~ season + DO_. + mean_depth_cm + position +
+                          (1 | site), data = dat_lm_OMflux_all_scaled)
+
+summary(OMflux_lmer)
+
+
+#### Run LMM for OM flux upstream ####
+
+#Use the dataset with the covarying variables removed, but add site and season back in 
+#consider the ecology, water physicochemistry are not likely drivers, select only plausible drivers
+dat_lm_OMflux<- dat_means %>% 
+  filter(site %in% upstream_sites)  %>%
+  select(-date, -campaign, -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state,  -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -masl, -water_pH, -water_conductivity_us_cm, -sed_OM_percent, -DailyMeanWaterTemp_C, -DO_., -bedrock, -fine_substrate, -k_dday_fine, -k_dday_coarse)
+
+#scale the data, except for CH4
+dat_lm_OMflux_scaled <- dat_lm_OMflux %>%
+  select(-OM_flux_g_m2_s) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the OM stock column back
+dat_lm_OMflux_scaled <- cbind(dat_lm_OMflux_scaled, OM_flux_g_m2_s = dat_lm_OMflux$OM_flux_g_m2_s)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_lm_OMflux_scaled)[sapply(dat_lm_OMflux_scaled, is.numeric)]
+
+
+OMflux_lmer_sat <- lmer(log(OM_flux_g_m2_s) ~ season + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm +   OM_stock_g_m2 + temp_C +   dist_ds_dam_km +   (1 | site), data = dat_lm_OMflux_scaled)
+
+summary(OMflux_lmer_sat)
+
+plot(OMflux_lmer_sat) # pattern improved by log transformation
+qqnorm(resid(OMflux_lmer_sat)) # good
+vif(OMflux_lmer_sat) # remove Distance_to_source_km 
+
+#run stepwise model selection
+lmerTest::step(OMflux_lmer_sat)
+
+#Model found:
+#log(OM_flux_g_m2_s) ~ season
+
+#Run top model
+OMflux_lmer <- lmer(log(OM_flux_g_m2_s) ~  season +  (1 | site), data = dat_lm_OMflux_scaled)
+
+summary(OMflux_lmer)
+plot(OMflux_lmer) 
+qqnorm(resid(OMflux_lmer)) 
+
+###############################################################################
+
+#### Run LMM for OM flux downstream ####
+
+#Use the dataset with the covarying variables removed, but add site and season back in 
+#consider the ecology, water physicochemistry are not likely drivers, select only plausible drivers
+dat_lm_OMflux_d <- dat_means %>% 
+  filter(site %in% downstream_sites)  %>%
+  select(-date, -campaign, -lat, -lon, -position, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state,  -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -masl, -water_pH, -water_conductivity_us_cm, -sed_OM_percent, -DailyMeanWaterTemp_C, -DO_., -bedrock, -fine_substrate, -k_dday_fine, -k_dday_coarse)
+
+#scale the data, except for CH4
+dat_lm_OMflux_d_scaled <- dat_lm_OMflux_d %>%
+  select(-OM_flux_g_m2_s) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the OM stock column back
+dat_lm_OMflux_d_scaled <- cbind(dat_lm_OMflux_d_scaled, OM_flux_g_m2_s = dat_lm_OMflux_d$OM_flux_g_m2_s)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_lm_OMflux_d_scaled)[sapply(dat_lm_OMflux_d_scaled, is.numeric)]
+
+
+OMflux_d_lmer_sat <- lmer(log(OM_flux_g_m2_s) ~ canopy_cover_. + wetted_width_m + discharge_m3_s +  mean_depth_cm +   OM_stock_g_m2 + temp_C +   dist_ds_dam_km +   (1 | site), data = dat_lm_OMflux_d_scaled)
+
+summary(OMflux_d_lmer_sat)
+
+plot(OMflux_d_lmer_sat) # pattern improved by log transformation
+qqnorm(resid(OMflux_d_lmer_sat)) # good
+vif(OMflux_d_lmer_sat) # remove season, remove velocity
+
+#run stepwise model selection
+lmerTest::step(OMflux_d_lmer_sat)
+
+#Model found:
+#log(OM_flux_g_m2_s) ~ canopy_cover_.
+
+#Run model 
+
+OMflux_d_lmer <- lmer(log(OM_flux_g_m2_s) ~ canopy_cover_. + (1 | site), data = dat_lm_OMflux_d_scaled)
+
+summary(OMflux_d_lmer)
+
+#### Run LMM for k coarse upstream ####
+
+#Use the dataset with the covarying variables removed, but add site and season back in 
+#consider the ecology, water physicochemistry are not likely drivers, select only plausible drivers
+dat_lm_kcoarse<- dat_means %>% 
+  filter(site %in% upstream_sites)  %>%
+  select( -date,  -campaign, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -discharge_m3_s, -bedrock, -DailyMeanWaterTemp_C)
+
+#scale the data, except for CH4
+dat_lm_kcoarse_scaled <- dat_lm_kcoarse %>%
+  select(-k_dday_coarse) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the OM stock column back
+dat_lm_kcoarse_scaled <- cbind(dat_lm_kcoarse_scaled, k_dday_coarse = dat_lm_kcoarse$k_dday_coarse)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_lm_kcoarse_scaled)[sapply(dat_lm_kcoarse_scaled, is.numeric)]
+
+
+kcoarse_lmer_sat <- lmer(log(k_dday_coarse) ~  water_pH + water_conductivity_us_cm + DO_. + canopy_cover_. + wetted_width_m + mean_velocity_m_s + mean_depth_cm + k_dday_fine + OM_stock_g_m2 + OM_flux_g_m2_s + sed_OM_percent + temp_C + masl + fine_substrate +  (1 | site ), data = dat_lm_kcoarse_scaled)
+
+summary(kcoarse_lmer_sat)
+
+plot(kcoarse_lmer_sat) # slight fan shape, improved by log transformation
+qqnorm(resid(kcoarse_lmer_sat)) # good
+vif(kcoarse_lmer_sat) # 
+
+lmerTest::step(kcoarse_lmer_sat)
+
+#Model found:
+#k_dday_coarse ~ water_conductivity_us_cm 
+
+#Rerun model 
+
+kcoarse_lmer <- lmer(log(k_dday_coarse) ~  water_conductivity_us_cm + (1 | site ), data = dat_lm_kcoarse_scaled)
+summary(kcoarse_lmer)
+
+plot(kcoarse_lmer) # slight fan shape, improved by log transformation
+qqnorm(resid(kcoarse_lmer)) # OK
+
+
+###############################################################################
+#### Run LMM for k coarse downstream ####
+
+#Use the dataset with the covarying variables removed, but add site and season back in 
+#consider the ecology, water physicochemistry are not likely drivers, select only plausible drivers
+dat_lm_kcoarse_d <- dat_means %>% 
+  filter(site %in% downstream_sites)  %>%
+  select( -date,  -campaign, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -position, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -discharge_m3_s, -bedrock)
+
+#scale the data, except for CH4
+dat_lm_kcoarse_d_scaled <- dat_lm_kcoarse_d %>%
+  select(-k_dday_coarse) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the OM stock column back
+dat_lm_kcoarse_d_scaled <- cbind(dat_lm_kcoarse_d_scaled, k_dday_coarse = dat_lm_kcoarse_d$k_dday_coarse)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_lm_kcoarse_d_scaled)[sapply(dat_lm_kcoarse_d_scaled, is.numeric)]
+
+kcoarse_d_lmer_sat <- lmer(log(k_dday_coarse) ~  water_pH + water_conductivity_us_cm + DO_. + canopy_cover_. + wetted_width_m + mean_velocity_m_s + k_dday_fine + OM_stock_g_m2 + OM_flux_g_m2_s + sed_OM_percent + temp_C + masl +  (1 | site ), data = dat_lm_kcoarse_d_scaled)
+
+summary(kcoarse_d_lmer_sat)
+
+plot(kcoarse_d_lmer_sat) #ok
+qqnorm(resid(kcoarse_d_lmer_sat)) #ok 
+vif(kcoarse_d_lmer_sat) #remove DailyMeanWaterTemp_C and fine_substrate and mean_depth_cm
+
+lmerTest::step(kcoarse_d_lmer_sat)
+# no variables chosen
+
+
+##############################################################################
+
+#### Use all data for more power with k coarse LMM ####
+
+dat_lm_kcoarse_all <- dat_means %>% 
+  select( -date,  -campaign, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -DailyMeanWaterTemp_C, -DailyMeanWaterTemp_C) #exclude DailyMeanWaterTemp_C because it's used in the calculation and water_temp_C point measure is not relevant
+
+#scale the data, except for CH4
+dat_lm_kcoarse_all_scaled <- dat_lm_kcoarse_all %>%
+  select(-k_dday_coarse) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the OM stock column back
+dat_lm_kcoarse_all_scaled <- cbind(dat_lm_kcoarse_all_scaled, k_dday_coarse = dat_lm_kcoarse_all$k_dday_coarse)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_lm_kcoarse_all_scaled)[sapply(dat_lm_kcoarse_all_scaled, is.numeric)]
+
+kcoarse_all_lmer_sat <- lmer(log(k_dday_coarse) ~ season +  water_pH + water_conductivity_us_cm + DO_. + canopy_cover_. +  discharge_m3_s + mean_velocity_m_s + mean_depth_cm + position*OM_stock_g_m2 + OM_flux_g_m2_s + sed_OM_percent + temp_C + masl + bedrock + fine_substrate + (1 | site ) , data = dat_lm_kcoarse_all_scaled)
+
+summary(kcoarse_all_lmer_sat)
+plot(kcoarse_all_lmer_sat) # 
+qqnorm(resid(kcoarse_all_lmer_sat)) # 
+vif(kcoarse_all_lmer_sat) # Remove Distance_to_source_km and dist_ds_dam_km and wetted_width_m and DO_mg_L
+
+lmerTest::step(kcoarse_all_lmer)
+
+#Model found:
+#log(k_dday_coarse) ~ season + water_conductivity_us_cm + DO_. + discharge_m3_s + OM_stock_g_m2 + OM_flux_g_m2_s + temp_C + position + Distance_to_source_km + fine_substrate + position:Distance_to_source_km
+
+kcoarse_all_lmer <- lmer(log(k_dday_coarse) ~ season + water_conductivity_us_cm + DO_. + discharge_m3_s + OM_stock_g_m2 + OM_flux_g_m2_s + temp_C + position + Distance_to_source_km + fine_substrate + position:Distance_to_source_km + (1 | site ) , data = dat_lm_kcoarse_all_scaled)
+
+summary(kcoarse_all_lmer)
+plot(kcoarse_all_lmer) # OK
+qqnorm(resid(kcoarse_all_lmer)) #  OK
+vif(kcoarse_all_lmer) # OK
+
+
+#Maybe we also need to run a dredge on this bc quite a lot of variables
 #Run dredge
 options(na.action = "na.fail") # Required for dredge to run
 
-lmer_CO2_dredge<- MuMIn::dredge(CO2_lmer, trace = 2, extra = list(
+lmer_kcoarse_dredge<- dredge(kcoarse_all_lmer, trace = 2, extra = list(
   "R^2", "*" = function(x) {
     s <- summary(x)
     c(Rsq = s$r.squared, adjRsq = s$adj.r.squared,
       F = s$fstatistic[[1]])
   }))
 
-options(na.action = "na.omit") 
+options(na.action = "na.omit") # set back to default
 
-nrow(lmer_CO2_dredge)  #how many models were run 8192
-head(lmer_CO2_dredge)
+nrow(lmer_kcoarse_dredge)  #how many models were run 1280
+head(lmer_kcoarse_dredge)
 
-#elimination of non-significant effects
-s <- lmerTest::step(CO2_lmer) #performs a backwards variable selection
-# Model found:
-CO2_lmer2 <- lmer(log_CO2_C_mg_m2_h ~ DO_. + discharge_m3_s + mean_velocity_m_s + OM_flux_g_m2_s + (1 + season | site)
- +  (1 + season | site), data = dat_scaled_out) 
+top.lmer_kcoarse_dredge  <- get.models(lmer_kcoarse_dredge , subset=delta <= 4) #chose 4 because null model otherwise 
 
-summary(CO2_lmer2)
-plot(CO2_lmer2) 
-qqnorm(resid(CO2_lmer2))
-AIC(CO2_lmer2) #449.7915
+#Formula: log(k_dday_coarse) ~ OM_stock_g_m2 + season + water_conductivity_us_cm +      (1 | site)
 
-#compare to the model with the top variables from RF
-CO2_lmer3 <- lmer(log_CO2_C_mg_m2_h ~ sed_OM_percent + DO_. + water_pH + wetted_width_m + (1 + season | site), data = dat_scaled_out) 
+#run the model 
 
-summary(CO2_lmer3)
-plot(CO2_lmer3) 
-qqnorm(resid(CO2_lmer3))
-AIC(CO2_lmer3) #494.0276
+kcoarse_dredged_lmer <- lmer(log(k_dday_coarse) ~ OM_stock_g_m2 + season + water_conductivity_us_cm + (1 | site ) , data = dat_lm_kcoarse_all_scaled)
+
+summary(kcoarse_dredged_lmer)
+
+## Run model from hypothesized variables
+
+kcoarse__lmer <- lmer(k_dday_coarse ~ dis_ds_dam_km*position*season + mean_velocity_m_s + (1 | site ) , data = dat_lm_kcoarse_all_scaled)
+
+summary(kcoarse__lmer)
+
+##############################################################################
+
+#### Use all data for more power with k fine LMM ####
+
+dat_lm_kfine_all <- dat_means %>% 
+  select( -date,  -campaign, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -CH4_C_mg_m2_h, -flow_state, -cobble, -boulder, -pebble_gravel, -DailyMeanWaterTemp_C, -water_temp_C)
+
+#scale the data, except for CH4
+dat_lm_kfine_all_scaled <- dat_lm_kfine_all %>%
+  select(-k_dday_fine) %>%
+  mutate(across(where(is.numeric), ~ scale(., center = T) %>% as.vector()))
+
+# Add the OM stock column back
+dat_lm_kfine_all_scaled <- cbind(dat_lm_kfine_all_scaled, k_dday_fine = dat_lm_kfine_all$k_dday_fine)
+
+#dredge and step don't like the '.' in the formula, so put in all of the columns...
+names(dat_lm_kfine_all_scaled)[sapply(dat_lm_kfine_all_scaled, is.numeric)]
+
+
+kfine_all_lmer_sat <- lmer(k_dday_fine ~ season +  + water_pH + water_conductivity_us_cm + DO_. +  canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm + position*OM_stock_g_m2 + OM_flux_g_m2_s + sed_OM_percent + temp_C + masl + position + bedrock + fine_substrate + (1 | site ) , data = dat_lm_kfine_all_scaled)
+
+summary(kfine_all_lmer_sat)
+plot(kfine_all_lmer_sat) # 
+qqnorm(resid(kfine_all_lmer_sat)) # 1 outlier
+vif(kfine_all_lmer_sat) # Remove DO_mg_L and Distance_to_source_km
+
+#Check outliers with Cook's Distance
+cooksD <- cooks.distance(kfine_all_lmer_sat) #run the model with dat_sub first
+influential <- cooksD[(cooksD > (5* mean(cooksD, na.rm = TRUE)))]
+influential #6, 29
+
+n <- nrow(dat_scaled_d_CH4)
+plot(cooksD, main = "Cooks Distance for Influential Obs")
+abline(h = 15/n, lty = 2, col = "steelblue") # add cutoff line
+
+names_of_influential <- names(influential)
+outliers <- dat_lm_kfine_all_scaled[names_of_influential,]
+dat_lm_kfine_all_scaled_out <- dat_lm_kfine_all_scaled %>% anti_join(outliers)
+
+#Re run without outliers
+kfine_all_lmer_sat2 <- lmer(k_dday_fine ~ season +  + water_pH + water_conductivity_us_cm + DO_. +  canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + mean_depth_cm + position*OM_stock_g_m2 + OM_flux_g_m2_s + sed_OM_percent + temp_C + masl + position + bedrock + fine_substrate +  (1 | site ) , data = dat_lm_kfine_all_scaled_out)
+
+summary(kfine_all_lmer_sat2)
+plot(kfine_all_lmer_sat2) # Much better
+qqnorm(resid(kfine_all_lmer_sat2)) # still 1 outlier
+vif(kfine_all_lmer_sat2) # 
+
+
+lmerTest::step(kfine_all_lmer_sat2)
+
+#Top model found:
+#k_dday_fine ~ position + sed_OM_percent
+
+#Run model
+kfine_all_lmer <- lmer(k_dday_fine ~ position + sed_OM_percent + (1 | site ) , data = dat_lm_kfine_all_scaled_out)
+
+summary(kfine_all_lmer)
+plot(kfine_all_lmer) # 
+qqnorm(resid(kfine_all_lmer)) # 
+vif(kfine_all_lmer) # 
+
+##############################################################################
+
+#### predict CO2 values ####
+
+#subset downstream sites
+dat_predict <- dat %>% 
+  filter(site %in% downstream_sites)  %>%
+           select(-date, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state,  -cobble, -boulder, -pebble_gravel, -DO_mg_L, -water_temp_C, -dist_ds_dam_km, -Distance_to_source_km, -position)
+
+names(dat_predict)[sapply(dat_predict, is.numeric)]
+
+lme4:::predict.merMod(CO2_lmer_up, newdata = dat_predict, allow.new.levels = TRUE)
+
+dat_predict$predicted_CO2_log <- predict(CO2_lmer_up, newdata = dat_predict, allow.new.levels = TRUE)
+dat_predict$predicted_CO2_original <- exp(dat_predict$predicted_CO2 - 16.3819)
 
 
 #############################################################################
@@ -1102,6 +2210,27 @@ fviz_contrib(PCA_CO2, choice = "var", axes = 2, top = 10)
 
 #The variables most strongly positively associated with upstream are: masl, canopy cover, k_dday_coarse, and k_dday_fine
 
+#run a PCA with the substrate variables
+
+dat_substrate <- dat %>%
+select(bedrock, boulder, cobble, pebble_gravel, fine_substrate)
+
+dat_substrate <- lapply(dat_substrate, function(x) asin(sqrt(x/100)))
+
+
+PCA_substrate <- PCA(dat_substrate, scale.unit = TRUE, ncp = 5, graph = TRUE)
+PCA_substrate
+
+PCA_substrate_vis <- fviz_pca_biplot(PCA_substrate, 
+                               col.ind = dat$position_d, #change for flow_state
+                               addEllipses = TRUE, label = "var",
+                               pointsize=3,
+                               alpha.ind=0.4,
+                               mean.point=F,
+                               ellipse.method = "covariance",
+                               col.var = "black", repel = TRUE,
+                               legend.title = " ") + ggtitle(NULL) 
+PCA_substrate_vis
 
 #####################################################################
 #### Try structural equation modeling SEM ####
@@ -1121,7 +2250,6 @@ mCO2 <- '
 # measurement model
 dam =~ fine_substrate + mean_depth_cm + water_conductivity_us_cm + wetted_width_m + OM_stock_g_m2 
 network =~ discharge_m3_s + masl
-local =~ water_pH +
 
 # regressions
 CO2_C_mg_m2_h ~ dam + network
