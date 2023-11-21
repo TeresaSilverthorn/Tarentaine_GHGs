@@ -31,6 +31,7 @@ library(geosphere)
 library(pls)
 library(emmeans)
 
+
 # Set wd for figures
 
 setwd("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Tarentaine_GHGs/Figures")
@@ -70,7 +71,6 @@ str(GHG) #323 obs. of  51 variables
 
 GHG <- GHG %>% 
 select(ID_unique, CO2_C_mg_m2_h, CH4_C_mg_m2_h)
-
 
 
 ############################################################################
@@ -124,6 +124,8 @@ decomp3 <- decomp %>%
 
 decomp <- inner_join(decomp1, decomp2, by = c("campaign", "site")) %>%
   inner_join(decomp3, by = c("campaign", "site"))
+
+decomp$k_ratio_f_c <- decomp$k_dday_fine/decomp$k_dday_coarse
 
 ########################################################################
 
@@ -356,6 +358,11 @@ dat$CH4_C_mg_m2_h <- ifelse(is.na(dat$CH4_C_mg_m2_h) & dat$campaign == "1" & dat
 dat$CH4_C_mg_m2_h <- ifelse(is.na(dat$CH4_C_mg_m2_h) & dat$campaign == "3" & dat$site == "TA14", mean_CH4_TA14, dat$CH4_C_mg_m2_h)
 dat$CH4_C_mg_m2_h <- ifelse(is.na(dat$CH4_C_mg_m2_h) & dat$campaign == "3" & dat$site == "TA01", mean_CH4_TA01, dat$CH4_C_mg_m2_h)
 
+###############################################################################
+
+#Calculate CO2e
+#the GWP of methane is 28 over a 100 yr horizon (Myhre et al 2013)
+dat$CO2e <- dat$CO2_C_mg_m2_h + (dat$CH4_C_mg_m2_h*28)
 
 ###############################################################################
 
@@ -426,7 +433,7 @@ dat <- dat %>%
 
 #### Save as .csv ####
 
-str(dat) #327 × 45 variables
+str(dat) #327 × 54 variables
 
 write.csv(dat, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/dat.csv")
 
@@ -447,8 +454,8 @@ str(dat_means) #58 obs of 40 vars
 #calculate averages of all variables
 
 data_summary <- dat %>%
-  group_by(season) %>%
-  summarise(across(where(is.numeric), ~ sd(.x, na.rm = TRUE))) %>%
+  group_by(season, position_d ) %>% #position_d , season
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE))) %>%
   t()
 
 write.csv(data_summary, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/dat_summary.csv")
@@ -479,7 +486,23 @@ common_sites <- dat %>%
 print(common_sites)
 length(common_sites) #18
 
+#summary up upstream reservoir downstream 
 
+site_summary <- dat %>%
+  filter(site %in% c("TA04", "TA05", "TA06" )) %>%  ##   "TA04", "TA05", "TA06"  #"TA09", "TA10", "TA11"  
+  group_by(site, season, position_d) %>% #add season for ANOVA
+  summarise(across(where(is.numeric), ~mean(.x, na.rm = TRUE)))
+
+write.csv(site_summary, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/site_summary.csv")
+
+
+#ANOVA on upstream, reservoir, downstream differences in env vars
+anova <- aov(OM_stock_g_m2 ~ site, data = site_summary)
+summary(anova)
+TukeyHSD(anova)
+
+
+sd(dat$CO2e)
 ###############################################################################
 #### Make preliminary plots ####
 
@@ -506,9 +529,9 @@ dat_numeric <- dat_numeric   %>%
 
 M <-cor(dat_numeric)
 
-corrplot(M, type="upper", order="hclust",
-         tl.cex = 0.7, tl.srt = 45,
-         col=brewer.pal(n=8, name="RdYlBu"))
+#corrplot(M, type="upper", order="hclust",
+         #tl.cex = 0.7, tl.srt = 45,
+        # col=brewer.pal(n=8, name="RdYlBu"))
 
 #Another option with the correlation coefficients
 corrplot(cor(dat_numeric), method = "number", tl.cex = 0.7, tl.srt = 45)
@@ -516,6 +539,128 @@ corrplot(cor(dat_numeric), method = "number", tl.cex = 0.7, tl.srt = 45)
 #Hard to see, so in table form
 correlation_matrix <- cor(dat_numeric)
 correlation_df <- as.data.frame(as.table(correlation_matrix))
+
+#### Make plots for each reservoir ####
+
+#subset the data from each reservoir
+eau_verte <- dat %>%
+  filter(site %in% c("TA04", "TA05", "TA06"))  %>% 
+group_by(site, season, position_d) %>%   #add site if you want site means
+  summarise(across(where(is.numeric), ~mean(.x, na.rm = TRUE)))
+
+tarentaine <- dat %>%
+  filter(site %in% c("TA09", "TA10", "TA11"))   %>% 
+group_by(site, season, position_d) %>%   #add site if you want site means
+  summarise(across(where(is.numeric), ~mean(.x, na.rm = TRUE)))
+
+
+eau_verte_sum <- dat %>%
+  filter(site %in% c("TA04", "TA05", "TA06")) %>%  
+  group_by(site, season, position_d) %>%   #add site if you want site means
+    summarise(
+      CO2_sd = sd(CO2_C_mg_m2_h, na.rm = TRUE),
+      CO2_C_mg_m2_h = mean(CO2_C_mg_m2_h, na.rm = TRUE)) 
+  
+
+tarentaine_sum <- dat %>%
+  filter(site %in% c("TA09", "TA10", "TA11"))  %>% 
+  group_by(site, season, position_d) %>%  #add site if you want site means
+    summarise(
+      CO2_sd = sd(CO2_C_mg_m2_h, na.rm = TRUE),
+      CO2_C_mg_m2_h = mean(CO2_C_mg_m2_h, na.rm = TRUE)) 
+
+
+eau_verte_sum2 <- dat %>%
+  filter(site %in% c("TA04", "TA05", "TA06")) %>%  
+  group_by(site, season, position_d) %>%   #add site if you want site means
+  summarise(
+    CH4_sd = sd(CH4_C_mg_m2_h, na.rm = TRUE),
+    CH4_C_mg_m2_h = mean(CH4_C_mg_m2_h, na.rm = TRUE)) 
+
+
+tarentaine_sum2 <- dat %>%
+  filter(site %in% c("TA09", "TA10", "TA11"))  %>% 
+  group_by(site, season, position_d) %>%  #add site if you want site means
+  summarise(
+    CH4_sd = sd(CH4_C_mg_m2_h, na.rm = TRUE),
+    CH4_C_mg_m2_h = mean(CH4_C_mg_m2_h, na.rm = TRUE)) 
+
+sd(dat$OM_flux_g_m2_s)
+
+
+# OM per reservoir
+
+OM_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=OM_stock_g_m2)) +
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +    ylab(expression("OM stock (g m"^"-2"*")"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "a) Tarentaine") + ylim(0,101) +
+  annotate("text", x = 1.8, y = 100, label=sprintf('\u2191'), size=2.5 , colour=(values=c("#26867c"))) +
+annotate("text", x = 2.0, y = 99.5, label="866", size=2.5 , colour=(values=c("#26867c")))  + guides(color = FALSE)
+OM_tarentaine
+
+OM_eauverte<- ggplot(data=eau_verte, aes(position_d, y=OM_stock_g_m2)) +
+  geom_point(aes(colour=position_d, shape=season), size=4, alpha=0.5) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +    ylab(expression("OM stock (g m"^"-2"*")"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) + labs(title = "b) Eau Verte") + guides(color = FALSE) + ylim(0,100)
+OM_eauverte
+
+
+
+# k coarse per reservoir
+
+kcoarse_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=k_day_coarse)) +
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "c) Tarentaine") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.20)
+kcoarse_tarentaine
+
+kcoarse_eauverte<- ggplot(data=eau_verte, aes(position_d, y=k_day_coarse)) +
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "d) Eau Verte") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.20)
+kcoarse_eauverte
+
+
+# CO2 per reservoir
+CO2_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=CO2_C_mg_m2_h)) +
+  geom_pointrange(aes(ymin = CO2_C_mg_m2_h-CO2_sd, ymax = CO2_C_mg_m2_h+CO2_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = tarentaine_sum) +
+  theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "e) Tarentaine")  + guides(color = FALSE)  + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) 
+CO2_tarentaine
+
+CO2_eauverte<- ggplot(data=subset(dat, site=="TA05" | site=="TA04" | site=="TA06") , aes(position_d, y=CO2_C_mg_m2_h)) +
+  geom_pointrange(aes(ymin = CO2_C_mg_m2_h-CO2_sd, ymax = CO2_C_mg_m2_h+CO2_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = eau_verte_sum) + theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "f) Eau Verte")   + guides(color = FALSE) + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) 
+CO2_eauverte
+
+# CH4 per reservoir
+CH4_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=CH4_C_mg_m2_h)) +
+  geom_pointrange(aes(ymin = CH4_C_mg_m2_h-CH4_sd, ymax = CH4_C_mg_m2_h+CH4_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = tarentaine_sum2) + 
+  theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.text.x = element_text(angle = 30, hjust = 1), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "g) Tarentaine")  + guides(color = FALSE) + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))  
+CH4_tarentaine
+
+CH4_eauverte<- ggplot(data=eau_verte, aes(position_d, y=CH4_C_mg_m2_h)) +
+  geom_pointrange(aes(ymin = CH4_C_mg_m2_h-CH4_sd, ymax = CH4_C_mg_m2_h+CH4_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = eau_verte_sum2) +
+       theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.text.x = element_text(angle = 30, hjust = 1), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "h) Eau Verte")  + guides(color = FALSE) + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))  
+CH4_eauverte
+
+
+
+tiff("OM_byreservoir", units="in", width=9, height=4, res=300)
+OM_byreservoir <- ggarrange(OM_tarentaine, OM_eauverte,ncol = 2, nrow = 1, align="v", common.legend = T)
+OM_byreservoir
+dev.off()
+
+
+tiff("CO2_byreservoir", units="in", width=9, height=4, res=300)
+CO2_byreservoir <- ggarrange(CO2_tarentaine, CO2_eauverte, ncol = 2, nrow = 1, align="v", common.legend = T)
+CO2_byreservoir
+dev.off()
+
+
+tiff("CH4_byreservoir", units="in", width=9, height=4, res=300)
+CH4_byreservoir <- ggarrange(CH4_tarentaine, CH4_eauverte,ncol = 2, nrow = 1, align="v", common.legend = T)
+CH4_byreservoir
+dev.off()
+
+#combine all
+tiff("vars_byreservoir", units="in", width=6, height=8.5, res=300)
+vars_byreservoir <- ggarrange(OM_tarentaine  + rremove("x.text") , OM_eauverte + rremove("x.text"), 
+                             # kcoarse_tarentaine + rremove("x.text"),  kcoarse_eauverte + rremove("x.text"), 
+                              CO2_tarentaine + rremove("x.text"), CO2_eauverte + rremove("x.text") , 
+                              CH4_tarentaine, CH4_eauverte,ncol = 2, nrow = 4, align="v", common.legend = T, heights= c(1, 1, 1, 1)) 
+vars_byreservoir
+dev.off()
 
 
 #### GHG by site and campaign ####
@@ -586,12 +731,7 @@ dat$position <- factor(dat$position, levels = c("upstream", "downstream"))
 
 tiff("CO2_distancebyposition", units="in", width=8.5, height=4, res=300)
 CO2_distancebyposition <- ggplot(dat, aes(dist_to_source_km, CO2_C_mg_m2_h)) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), legend.position = "top", legend.justification = "center", panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + scale_colour_manual(values=c("#91278e","#26867c", "#f7921e")) + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) + xlab("Distance to the source (km)") + scale_linetype_manual(values = c("dashed", "solid")) +facet_wrap(~season) +
-  #geom_smooth(data = subset(dat, season=="Fall"), method = "lm",  se = FALSE,colour = "black", linewidth = 1, linetype="solid", alpha=0.5) 
-geom_line(data = subset(dat, season=="Fall"), stat="smooth",method = "lm", colour = "black", linewidth = 1, linetype="solid", alpha=0.5)+ ylim(-35, 600) 
-  #geom_text(data = subset(dat, season == "Spring"),
-   #         aes(x = 6.23, y = 250, label = sprintf('\u2191'))) + 
-  #geom_text(data = subset(dat, season == "Spring"),
-   #         aes(x = 6.23, y = 230, label = "576") )
+geom_line(data = subset(dat, season=="Fall"), stat="smooth",method = "lm", colour = "black", linewidth = 1, linetype="solid", alpha=0.5)  + ylim(-35, 600) 
 CO2_distancebyposition 
 dev.off()
 
@@ -606,19 +746,28 @@ dev.off()
 
 #weird that the site upstream the dam, TA11 has high values for all 3 campaigns
 
-#combine CO2 and CH4 distance to source by position
-tiff("CO2_CH4_distancebyposition", units="in", width=9, height=8, res=300)
 
-CO2_CH4_distancebyposition <- ggarrange(CO2_distancebyposition +theme(axis.title.x = element_blank()),  CH4_distancebyposition ,ncol = 1, nrow = 2, align="hv",common.legend = T,legend="top", labels = c("(a)", "(b)")) 
+#total C in CO2 equivalents and distance to source
+CO2e_distance <- ggplot(dat, aes(dist_to_source_km, CO2e/1000)) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  legend.position = "top", legend.justification = "center", axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + scale_colour_manual(values=c("#91278e","#26867c" ,"#f7921e")) +  facet_wrap(~season) + xlab("Distance to the source (km)") + ylab(expression("g CO"[2]*"e"))
+CO2e_distance
+
+#combine CO2 and CH4 and CO2e distance to source by position
+tiff("CO2_CH4_distancebyposition", units="in", width=9, height=11, res=300)
+
+CO2_CH4_distancebyposition <- ggarrange(CO2_distancebyposition +theme(axis.title.x = element_blank()),  CH4_distancebyposition , CO2e_distance,
+ncol = 1, nrow = 3, align="hv",common.legend = T,legend="top", labels = c("(a)", "(b)",  "(c)")) 
 CO2_CH4_distancebyposition
 
 dev.off()
 
 
-
-
 #### GHG and distance to dam ####
 CO2_distancedam <- ggplot(dat, aes(dist_ds_dam_km, CO2_C_mg_m2_h)) + geom_point(aes(colour=position), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
+CO2_distancedam
+
+
+
+CO2_distancedam <- ggplot(dat, aes(dist_to_source_km, DailyMeanWaterTemp_C)) + geom_point(aes(colour=position_d), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CO2_distancedam
 
 distancedam <- ggplot(dat_means, aes(dist_to_dam_km, mean_velocity_m_s)) + geom_point(aes(colour=position_d), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
@@ -852,6 +1001,12 @@ CO2_kfine <- ggplot(subset(dat, site %in% downstream_sites), aes(k_dday_fine, CO
 CO2_kfine
 dev.off()
 
+
+kratio <-  ggplot(dat_means, aes(dist_to_source_km, k_ratio_f_c) ) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression("kfine:kcoarse"))  +  xlab("Distance to the source (km)") + facet_wrap(~season) 
+kratio
+
+
 tiff("k_coarse", units="in", width=9, height=4, res=300)
 k_coarse <- ggplot(dat_means, aes(dist_to_source_km, k_dday_coarse) ) +
   geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), legend.position="top",  axis.ticks.x=element_blank(), legend.title=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + facet_wrap(~season) + labs(title = "(a) coarse") +
@@ -879,6 +1034,12 @@ kcoarse_cond <- ggplot(dat, aes(water_conductivity_us_cm, k_dday_coarse)) + geom
 kcoarse_cond
 dev.off()
 
+masl_cond <- ggplot(dat, aes(masl, k_dday_coarse)) + geom_point(aes(colour=position), size=3.5, alpha=0.3) +  theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + ylab("k coarse (dday-1)") + scale_colour_manual(values=c("#91278e", "#f7921e")) + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1) + xlab("Water conductivity (us/cm)") 
+masl_cond
+
+lm_model <- lm(k_dday_coarse ~ masl, data = dat)
+summary(lm_model)
+
 kcoarse_dist <- ggplot(dat, aes(dist_to_dam_km, k_dday_coarse)) + geom_point(aes(colour=position), size=3.5, alpha=0.3) +  theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + ylab("k coarse (dday-1)") + scale_colour_manual(values=c("#91278e", "#f7921e")) + geom_smooth(data = subset(dat_means, position %in% c("upstream", "downstream")), method = "lm", se = F, aes(group = position, colour = position), size = 1) 
 kcoarse_dist
 
@@ -894,6 +1055,75 @@ k_fine_coarse
 dev.off()
 
 
+#### For Fanny: k per day (not dday) ####
+
+
+kday_fine <- ggplot(dat_means, aes(dist_to_source_km, k_day_fine) ) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + ylab(expression(paste(italic(k), " (", day^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) fine") +    scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
+  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="solid") +
+  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
+  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
+  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
+  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
+  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") 
+kday_fine
+
+kday_coarse <- ggplot(dat_means, aes(dist_to_source_km, k_day_coarse) ) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + ylab(expression(paste(italic(k), " (", day^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(a) coarse") +    scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
+  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
+  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
+  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1,  linetype="dashed") +
+  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
+  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
+  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") 
+kday_coarse
+
+
+
+## Combine the k day plots ##
+
+tiff("kday_fine_coarse", units="in", width=9, height=8, res=300)
+
+kday_fine_coarse <- ggarrange(kday_coarse + theme(axis.title.x = element_blank() ),  
+                              kday_fine, 
+                           ncol = 1, nrow = 2, align="hv",common.legend = T,legend="top")
+kday_fine_coarse
+
+dev.off()
+
+
+
+
+
+####OM : Decomposition#### 
+#new variable that is the ratio of OM stock to decomp rate
+dat_means$coarse_OM <- (dat_means$OM_stock_g_m2/dat_means$k_day_coarse)/1000
+dat_means$fine_OM <- (dat_means$OM_stock_g_m2/dat_means$k_day_fine)/1000
+
+kfineOM_dist <- ggplot(dat_means, aes(dist_to_source_km, fine_OM)) + geom_point(aes(colour=position_d), size=3.5, alpha=0.6) +  theme_bw() + theme(legend.position="top", legend.title=element_blank(), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + ylab("OM stock : k fine") + scale_colour_manual(values=c("#91278e", "#1e6b63","#f7921e")) + facet_wrap(~season) + ylim(0,4.5) + xlab("Distance to source (km)") +
+ geom_text(data = subset(dat_means, position_d == "reservoir"), aes(label = site), size = 2.5, vjust = 1.5, hjust = -0.5) +
+  geom_text(data = subset(dat_means, season == "Summer"), aes(x = 16.620201, y = 4, label = sprintf('\u2191')), colour="#1e6b63") +
+  geom_text(data = subset(dat_means, season == "Summer"), aes(x = 20, y = 4, label = "TA10"), size=2.5)  + 
+  labs(title = "(b) fine") 
+kfineOM_dist # Note that the ratio is divided by 1000
+
+
+kcoarseOM_dist <- ggplot(dat_means, aes(dist_to_source_km, coarse_OM)) + geom_point(aes(colour=position_d), size=3.5, alpha=0.6) +  theme_bw() + theme(legend.position="top", legend.title=element_blank(), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + ylab("OM stock : k coarse") + scale_colour_manual(values=c("#91278e", "#1e6b63","#f7921e")) + facet_wrap(~season) + ylim(0,4.5)  + xlab("Distance to source (km)") +
+  geom_text(data = subset(dat_means, position_d == "reservoir"), aes(label = site), size = 2.5, vjust = 1.5, hjust = -0.5) +
+  geom_text(data = subset(dat_means, season == "Summer"), aes(x = 16.620201, y = 3.8, label = sprintf('\u2191')), colour="#1e6b63")  +
+ geom_text(data = subset(dat_means, season == "Summer"), aes(x = 20, y = 3.8, label = "TA10"), size=2.5) + labs(title = "(a) coarse") 
+kcoarseOM_dist 
+
+#combine
+
+tiff("k_OM_ratio", units="in", width=6.5, height=7, res=300)
+
+k_fine_coarse <- ggarrange(kcoarseOM_dist + theme(axis.title.x = element_blank() ),  
+                           kfineOM_dist, 
+                           ncol = 1, nrow = 2, align="hv",common.legend = T,legend="top")
+k_fine_coarse
+
+dev.off()
 
 #### OM #### 
 
@@ -2122,14 +2352,82 @@ summary(CH4_env2)
 #### Run LMMs by season ####
 
 
-CH4_pos_lmm <- lm(CH4_C_mg_m2_h ~ dist_to_source_km, data=dat)
+CH4_pos_lmm <- lm(CH4_C_mg_m2_h ~ dist_to_dam_km, data=dat)
 summary(CH4_pos_lmm)
 plot(CH4_pos_lmm)
 
 
-CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_dam_km + (1 | site), data=subset(dat, season=="Fall"))
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_dam_km + (1 | site), data=subset(dat, season=="Summer"))
 summary(CH4_pos_lmm)
 plot(CH4_pos_lmm)
+#to interpret coefficient need to untransform:
+-0.05986^3 #-0.0002144915
+(-0.05986*10)^3 #-0.2144915
+
+CH4_position_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ position_d + (1 | site), data=subset(dat, season=="Fall"))
+summary(CH4_position_lmm)
+plot(CH4_position_lmm)
+
+emmeans(CH4_position_lmm, pairwise ~ position_d) #post hoc test
+
+
+CH4_season_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ season + (1 +season | site), data=dat)
+summary(CH4_season_lmm)
+plot(CH4_season_lmm)
+
+emmeans(CH4_season_lmm, pairwise ~ season) 
+
+################################################################################
+
+#### Run LMM for CO2 equivalents ############
+
+min(dat$CO2e[dat$season == "Fall"]) #Spring -13.25686, Summer -31.12941
+min(dat$CO2e[dat$CO2e >= 0]) #0.1447593 
+0.1447593+31.12941 #31.27417
+
+dat_CO2e_Fall <- subset(dat, season=="Fall") #remove 1 outlier in Fall
+dat_CO2e_Fall_out <- subset(dat_CO2e_Fall, CO2e<=1000)
+
+CO2e_source_lmm <- lmer(log(CO2e) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Fall"))
+summary(CO2e_source_lmm) #no sig relationship, p = 0.09 in the fall...
+plot(CO2e_source_lmm)
+
+CO2e_source_lmm_all <- lmer(log(CO2e) ~ dist_to_source_km + (1 +season | site), data=dat)
+summary(CO2e_source_lmm_all) #not sig
+plot(CO2e_source_lmm_all)
+
+CO2e_source_lmm_season <- lmer(log(CO2e) ~ season + (1 +season | site), data=dat)
+summary(CO2e_source_lmm_season) 
+plot(CO2e_source_lmm_season)
+emmeans(CO2e_source_lmm_season, pairwise ~ season) #no effect of season
+
+CO2e_dam_lmm <- lmer(log(CO2e+32.12941) ~ dist_to_dam_km + (1 | site), data=subset(dat_CO2e_Summer_out, season=="Summer"))
+summary(CO2e_dam_lmm) #no sig relationships
+plot(CO2e_dam_lmm)
+
+CO2e_pos_lmm <- lmer(log(CO2e) ~ position_d + (1 | site), data=subset(dat, season=="Fall")) #dat_CO2e_Summer_out
+summary(CO2e_pos_lmm) #in the fall, reservoir sig lower than upstream
+plot(CO2e_pos_lmm)
+emmeans(CO2e_pos_lmm, pairwise ~ position_d) 
+
+#1 outlier in summer - check  with Cook's Distance
+dat_CO2e_Summer <- subset(dat, season=="Summer")
+cooksD <- cooks.distance(CO2e_pos_lmm) #run the model with dat_sub first
+influential <- cooksD[(cooksD > (8* mean(cooksD, na.rm = TRUE)))]
+influential #15
+
+n <- nrow(dat_CO2e_Summer)
+plot(cooksD, main = "Cooks Distance for Influential Obs")
+abline(h = 15/n, lty = 2, col = "steelblue") # add cutoff line
+
+names_of_influential <- names(influential)
+outliers <- dat_CO2e_Summer[names_of_influential,]
+dat_CO2e_Summer_out <- dat_CO2e_Summer %>% anti_join(outliers)
+
+
+
+
+
 
 emmeans(CH4_pos_lmm, pairwise ~ position_d) #post hoc test
 
@@ -2137,7 +2435,8 @@ CH4_season_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ season + (1 +season | site), data=d
 summary(CH4_season_lmm)
 plot(CH4_season_lmm)
 
-emmeans(CH4_season_lmm, pairwise ~ season) 
+
+
 
 ####################################################################################
 
@@ -2851,7 +3150,7 @@ summary(kcoarse_spring_lm)
 plot(kcoarse_spring_lm)
 
 kcoarse_lm <- lm(log(k_dday_coarse) ~ dist_to_source_km, data=subset(dat_means, season=="Summer" & k_dday_coarse <=0.013))
-summary(kcoarse_lm)
+summary(kcoarse_lm)  #Note: with the highest value of kcoarse removed in the summer, the relationship is no longer significant.
 plot(kcoarse_lm)
 
 kcoarse_pos_lm <- lm(log(k_dday_coarse) ~ position_d, data=subset(dat_means, season=="Fall"))
@@ -3049,6 +3348,61 @@ plot(kfine_season_lm)
 
 emmeans(kfine_season_lm, pairwise ~ season) 
 
+##################################################################################
+##### For Fanny: LMMs with k per day (not dday) ####
+
+# k coarse
+
+#All data
+kcoarse_source_lm <- lm(log(k_day_coarse) ~ dist_to_source_km, data=dat_means)
+summary(kcoarse_source_lm) #not sig
+plot(kcoarse_source_lm)
+
+kcoarse_dam_lm <- lm(log(k_day_coarse) ~ dist_to_dam_km, data=dat_means)
+summary(kcoarse_dam_lm) #not sig
+plot(kcoarse_dam_lm)
+
+kcoarse_season_lm <- lm(log(k_dday_coarse) ~ season, data=dat_means)
+summary(kcoarse_season_lm)
+plot(kcoarse_season_lm)
+
+emmeans(kcoarse_season_lm, pairwise ~ season) #Spring - Summer and Spring - Fall sig diff
+
+
+#by season
+kcoarse_spring_lm <- lm(log(k_day_coarse) ~ dist_to_dam_km, data=subset(dat_means, season=="Summer" & k_day_coarse <= 0.22))
+summary(kcoarse_spring_lm)
+plot(kcoarse_spring_lm)
+
+#by position
+kcoarse_pos_lm <- lm(log(k_day_coarse) ~ position_d, data=subset(dat_means, season=="Fall"))
+summary(kcoarse_pos_lm)
+plot(kcoarse_pos_lm)
+
+emmeans(kcoarse_pos_lm, pairwise ~ position_d)
+
+#kfine
+
+kfine_source_lm <- lm(log(k_day_fine) ~ dist_to_dam_km, data=dat_means)
+summary(kfine_source_lm) #not sig
+plot(kfine_source_lm)
+
+kfine_season_lm <- lm(log(k_day_fine) ~ season, data=dat_means)
+summary(kfine_season_lm) 
+emmeans(kfine_season_lm, pairwise ~ season) #all seasons sig  different
+
+#by season
+
+kfine_season_lm <- lm(log(k_day_fine) ~ dist_to_source_km, data=subset(dat_means, season=="Fall" & position_d=="downstream"))
+summary(kfine_season_lm)
+plot(kfine_season_lm)
+
+#by position
+kfine_pos_lm <- lm(log(k_day_fine) ~ position_d, data=subset(dat_means, season=="Fall"))
+summary(kfine_pos_lm)
+plot(kfine_pos_lm)
+
+emmeans(kfine_pos_lm, pairwise ~ position_d) #
 
 ##############################################################################
 
@@ -3961,15 +4315,15 @@ kfine_par3
 #subset by season
 pls_OMstock_spring <- plsr(log(CO2_C_mg_m2_h+35.92515)~water_pH + water_conductivity_us_cm + DO_mg_L + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + DailyMeanWaterTemp_C + temp_C + substrate_complexity + fine_substrate + mean_depth_cm + percent_open_upstream + percent_open_downstream + masl + dist_to_source_km + dist_to_dam_km + dist_ds_weir_km + percent_open_upstream_weir + No_weirs_dams_up + OM_stock_g_m2, data=dat, scale=TRUE, validation="LOO", method = "oscorespls") #or can use LOOCV
 
-pls_OMstock_spring <- plsr(log(k_dday_fine)~ water_pH + water_conductivity_us_cm + DO_mg_L + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + DailyMeanWaterTemp_C + temp_C + substrate_complexity + fine_substrate + mean_depth_cm +  masl + dist_to_source_km + OM_stock_g_m2, data=dat, scale=TRUE, validation="LOO", method = "oscorespls") 
-summary(pls_OMstock_spring)
-plot(pls_OMstock_spring)
-coef(pls_OMstock_spring) ## Get the PLS coefficients
-coef(pls_OMstock_spring, ncomp = 2) #for the 1st two components
+pls_OMstock <- plsr(log(k_day_fine)~ water_pH + water_conductivity_us_cm + DO_mg_L + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + DailyMeanWaterTemp_C + temp_C + substrate_complexity + fine_substrate + mean_depth_cm +  masl + dist_to_source_km + OM_stock_g_m2, data=dat, scale=TRUE, validation="LOO", method = "oscorespls") 
+summary(pls_OMstock)
+plot(pls_OMstock)
+coef(pls_OMstock) ## Get the PLS coefficients
+coef(pls_OMstock, ncomp = 2) #for the 1st two components
 
 
-validationplot(pls_OMstock_spring, val.type="MSEP")
-validationplot(pls_OMstock_spring, val.type="R2")
+validationplot(pls_OMstock, val.type="MSEP")
+validationplot(pls_OMstock, val.type="R2")
 #Now choose the number of PLS components worth keeping.
 #See when RMSE start to increase, 
 #Training indicates the percentage of the variance in the response variable explained by the PLS components. 
@@ -3989,7 +4343,7 @@ VIP <- function(object) {
   sqrt(nrow(SSW) * apply(SSW, 1, cumsum) / cumsum(SS))
 }
 
-VIP_OMstock_spring <- VIP(pls_OMstock_spring)
+VIP_OMstock_spring <- VIP(pls_OMstock)
 
 #Subset just the first two components
 VIP_OMstock_spring <- VIP_OMstock_spring[1:2, ]
@@ -4011,7 +4365,7 @@ VIP_OMstock_spring_df <- VIP_OMstock_spring_df %>%
   summarize(Mean_VIP = mean(VIP_Values))
 
 # Create the data frame for the coefficients
-pls_coef <- coef(pls_OMstock_spring, ncomp = 2)
+pls_coef <- coef(pls_OMstock, ncomp = 2)
 coefficients <- pls_coef[, , 1]
 variables <- rownames(pls_coef) # Get variable names
 
@@ -4033,4 +4387,33 @@ plot(VIP_OMstock[, 1], VIP_OMstock[, 2],
      main = "Variable Importance Plot")
 
 
+#############################################################################
+#### ROE obstacles d'ecoulements ####
 
+obst <- read.csv("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Site selection/ObstEcoul.txt")
+
+str(obst)
+
+#SUbset only the validated impoundments
+
+obst_v <- subset(obst, StObstEcou== "Validé" & LbEtOuvrag == "Existant") #all are validated
+
+
+summary(as.factor(obst_v_NAr$LbHautChut)) #3057 uncategorized, remove these
+obst_v_NAr$LbHautChut <- as.factor(obst_v_NAr$LbHautChut)
+levels(obst_v_NAr$LbHautChut)
+
+obst_v_NAr <- obst_v[obst_v$LbHautChut != " ", ]
+
+summary(obst_v_NAr$HautChutEt)
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's 
+#0.000   0.400   0.920   1.488   1.680 260.000   15620
+
+#How many under 15m? 
+sum(obst_v_NAr$HautChutEt < 15, na.rm=T) #38637
+sum(obst_v_NAr$HautChutEt > 15, na.rm=T)  #205
+(205/38637)*100 #0.5305795% of dams are >15m
+1-0.005305795
+
+sum(obst_v_NAr$LbHautChut != "Supérieure ou égale à 10m") #50954
+sum(obst_v_NAr$LbHautChut == "Supérieure ou égale à 10m") #594

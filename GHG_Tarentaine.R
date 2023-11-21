@@ -576,6 +576,7 @@ CO2.results <- gasfluxes(CO2_dat, .id = "ID_unique", .V = "chamber_volume", .A =
 CO2.results #linear.f0 units are mg-CO2-C/m2/h
 str(CO2.results) #  324 obs. of  10 variables
 
+
 #Find out which ones are missing 
 ancil_dat$ID_unique[!(ancil_dat$ID_unique %in% CO2.results$ID_unique)] # "2022-10-10_TA01_4" "2022-10-12_TA14_2" "2022-10-12_TA14_5" "2022-10-14_TA24_5"
 
@@ -595,13 +596,7 @@ str(CO2_fluxes) #327 obs. of  48 variables (4 NA flux values)
 
 #### for CH4 ####
 
-setwd("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Tarentaine_GHGs/Flux_figures/gasfluxes/CH4")
-
-#Run the package to calculate the gas flux rate
-CH4.results <- gasfluxes(CH4_dat, .id = "ID_unique", .V = "chamber_volume", .A = "chamber_area",.times = "flux_time", .C = "CH4_mg_L",method = c("linear"), plot = F) #can turn plot to FALSE if the number of plots was getting out of hand
-
-CH4.results #linear.f0 units are mg-CH4-C/m2/h
-str(CH4.results) #  326 obs. of  10 variables
+ #  326 obs. of  10 variables
 
 #Find out if any / which ones are missing 
 ancil_dat$ID_unique[!(ancil_dat$ID_unique %in% CH4.results$ID_unique)]  #"2022-06-01_TA10_6"
