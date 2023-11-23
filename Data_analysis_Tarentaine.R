@@ -454,9 +454,20 @@ str(dat_means) #58 obs of 40 vars
 #calculate averages of all variables
 
 data_summary <- dat %>%
-  group_by(season, position_d ) %>% #position_d , season
-  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE))) %>%
+  group_by(position_d) %>% #position_d , season
+  summarise(across(where(is.numeric), ~ sd(.x, na.rm = TRUE))) %>%
   t()
+
+mean(dat$CH4_C_mg_m2_h[dat$position_d == "downstream" & dat$site != "TA04" & dat$site != "TA09"],)
+#0.1983259 0.3957998
+
+mean(dat$CH4_C_mg_m2_h[dat$position_d == "reservoir"],)
+
+subset_data <- dat[dat$position_d == "downstream", ]
+
+# Printing the site column for the subset
+print(subset_data$site)
+
 
 write.csv(data_summary, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/dat_summary.csv")
 
@@ -605,12 +616,23 @@ OM_eauverte
 # k coarse per reservoir
 
 kcoarse_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=k_day_coarse)) +
-  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "c) Tarentaine") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.20)
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "a) Tarentaine - total") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.20)
 kcoarse_tarentaine
 
 kcoarse_eauverte<- ggplot(data=eau_verte, aes(position_d, y=k_day_coarse)) +
-  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "d) Eau Verte") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.20)
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "b) Eau Verte - total") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.20)
 kcoarse_eauverte
+
+
+# k fine per reservoir
+
+kfine_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=k_day_fine)) +
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "c) Tarentaine -  microbes") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE)  + ylim(0,0.04)
+kfine_tarentaine
+
+kfine_eauverte<- ggplot(data=eau_verte, aes(position_d, y=k_day_fine)) +
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "d) Eau Verte - microbes") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.04)
+kfine_eauverte
 
 
 # CO2 per reservoir
@@ -639,6 +661,13 @@ CH4_eauverte
 tiff("OM_byreservoir", units="in", width=9, height=4, res=300)
 OM_byreservoir <- ggarrange(OM_tarentaine, OM_eauverte,ncol = 2, nrow = 1, align="v", common.legend = T)
 OM_byreservoir
+dev.off()
+
+tiff("k_byreservoir", units="in", width=6, height=5.5, res=300)
+k_byreservoir <- ggarrange(kcoarse_tarentaine, kcoarse_eauverte,
+                           kfine_tarentaine, kfine_eauverte,
+                           ncol = 2, nrow = 2, align="v", common.legend = T)
+k_byreservoir
 dev.off()
 
 
@@ -748,13 +777,15 @@ dev.off()
 
 
 #total C in CO2 equivalents and distance to source
-CO2e_distance <- ggplot(dat, aes(dist_to_source_km, CO2e/1000)) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  legend.position = "top", legend.justification = "center", axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + scale_colour_manual(values=c("#91278e","#26867c" ,"#f7921e")) +  facet_wrap(~season) + xlab("Distance to the source (km)") + ylab(expression("g CO"[2]*"e"))
+CO2e_distance <- ggplot(dat, aes(dist_to_source_km, CO2e/1000)) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  legend.position = "top", legend.justification = "center", axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + scale_colour_manual(values=c("#91278e","#26867c" ,"#f7921e")) +  facet_wrap(~season) + xlab("Distance to the source (km)") + ylab(expression(g~CO[2]*"-eq m"^-2*" d"^-1))  #ylab(expression("g CO"[2]*"-eq~m^-2~d^-1")) 
 CO2e_distance
 
 #combine CO2 and CH4 and CO2e distance to source by position
 tiff("CO2_CH4_distancebyposition", units="in", width=9, height=11, res=300)
 
-CO2_CH4_distancebyposition <- ggarrange(CO2_distancebyposition +theme(axis.title.x = element_blank()),  CH4_distancebyposition , CO2e_distance,
+CO2_CH4_distancebyposition <- ggarrange(CO2_distancebyposition + theme(axis.title.x = element_blank()) ,
+                                        CH4_distancebyposition + theme(axis.title.x = element_blank()),
+                                        CO2e_distance, 
 ncol = 1, nrow = 3, align="hv",common.legend = T,legend="top", labels = c("(a)", "(b)",  "(c)")) 
 CO2_CH4_distancebyposition
 
@@ -980,7 +1011,7 @@ dev.off()
 
 tiff("k_fine", units="in", width=9, height=4, res=300)
 k_fine <- ggplot(dat_means, aes(dist_to_source_km, k_dday_fine) ) +
-  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) fine") + facet_wrap(~season) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) microbes") + facet_wrap(~season) +
 scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
@@ -1009,7 +1040,7 @@ kratio
 
 tiff("k_coarse", units="in", width=9, height=4, res=300)
 k_coarse <- ggplot(dat_means, aes(dist_to_source_km, k_dday_coarse) ) +
-  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), legend.position="top",  axis.ticks.x=element_blank(), legend.title=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + facet_wrap(~season) + labs(title = "(a) coarse") +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), legend.position="top",  axis.ticks.x=element_blank(), legend.title=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + facet_wrap(~season) + labs(title = "(a) invertebrates + microbes") +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1) +
@@ -1059,7 +1090,7 @@ dev.off()
 
 
 kday_fine <- ggplot(dat_means, aes(dist_to_source_km, k_day_fine) ) +
-  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + ylab(expression(paste(italic(k), " (", day^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) fine") +    scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + ylab(expression(paste(italic(k), " (", day^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) microbes") +    scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="solid") +
   geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
@@ -1069,7 +1100,7 @@ kday_fine <- ggplot(dat_means, aes(dist_to_source_km, k_day_fine) ) +
 kday_fine
 
 kday_coarse <- ggplot(dat_means, aes(dist_to_source_km, k_day_coarse) ) +
-  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + ylab(expression(paste(italic(k), " (", day^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(a) coarse") +    scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + ylab(expression(paste(italic(k), " (", day^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(a) invertebrates + microbes") +    scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1,  linetype="dashed") +
@@ -1100,18 +1131,18 @@ dev.off()
 dat_means$coarse_OM <- (dat_means$OM_stock_g_m2/dat_means$k_day_coarse)/1000
 dat_means$fine_OM <- (dat_means$OM_stock_g_m2/dat_means$k_day_fine)/1000
 
-kfineOM_dist <- ggplot(dat_means, aes(dist_to_source_km, fine_OM)) + geom_point(aes(colour=position_d), size=3.5, alpha=0.6) +  theme_bw() + theme(legend.position="top", legend.title=element_blank(), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + ylab("OM stock : k fine") + scale_colour_manual(values=c("#91278e", "#1e6b63","#f7921e")) + facet_wrap(~season) + ylim(0,4.5) + xlab("Distance to source (km)") +
+kfineOM_dist <- ggplot(dat_means, aes(dist_to_source_km, fine_OM)) + geom_point(aes(colour=position_d), size=3.5, alpha=0.6) +  theme_bw() + theme(legend.position="top", legend.title=element_blank(), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + ylab("OM stock : k microbes") + scale_colour_manual(values=c("#91278e", "#1e6b63","#f7921e")) + facet_wrap(~season) + ylim(0,4.5) + xlab("Distance to source (km)") +
  geom_text(data = subset(dat_means, position_d == "reservoir"), aes(label = site), size = 2.5, vjust = 1.5, hjust = -0.5) +
   geom_text(data = subset(dat_means, season == "Summer"), aes(x = 16.620201, y = 4, label = sprintf('\u2191')), colour="#1e6b63") +
   geom_text(data = subset(dat_means, season == "Summer"), aes(x = 20, y = 4, label = "TA10"), size=2.5)  + 
-  labs(title = "(b) fine") 
+  labs(title = "(b) microbial") 
 kfineOM_dist # Note that the ratio is divided by 1000
 
 
-kcoarseOM_dist <- ggplot(dat_means, aes(dist_to_source_km, coarse_OM)) + geom_point(aes(colour=position_d), size=3.5, alpha=0.6) +  theme_bw() + theme(legend.position="top", legend.title=element_blank(), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + ylab("OM stock : k coarse") + scale_colour_manual(values=c("#91278e", "#1e6b63","#f7921e")) + facet_wrap(~season) + ylim(0,4.5)  + xlab("Distance to source (km)") +
+kcoarseOM_dist <- ggplot(dat_means, aes(dist_to_source_km, coarse_OM)) + geom_point(aes(colour=position_d), size=3.5, alpha=0.6) +  theme_bw() + theme(legend.position="top", legend.title=element_blank(), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + ylab("OM stock : k total") + scale_colour_manual(values=c("#91278e", "#1e6b63","#f7921e")) + facet_wrap(~season) + ylim(0,4.5)  + xlab("Distance to source (km)") +
   geom_text(data = subset(dat_means, position_d == "reservoir"), aes(label = site), size = 2.5, vjust = 1.5, hjust = -0.5) +
   geom_text(data = subset(dat_means, season == "Summer"), aes(x = 16.620201, y = 3.8, label = sprintf('\u2191')), colour="#1e6b63")  +
- geom_text(data = subset(dat_means, season == "Summer"), aes(x = 20, y = 3.8, label = "TA10"), size=2.5) + labs(title = "(a) coarse") 
+ geom_text(data = subset(dat_means, season == "Summer"), aes(x = 20, y = 3.8, label = "TA10"), size=2.5) + labs(title = "(a) microbial + invertebrate") 
 kcoarseOM_dist 
 
 #combine
@@ -2364,7 +2395,7 @@ plot(CH4_pos_lmm)
 -0.05986^3 #-0.0002144915
 (-0.05986*10)^3 #-0.2144915
 
-CH4_position_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ position_d + (1 | site), data=subset(dat, season=="Fall"))
+CH4_position_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ position_d + (1 | site), data=subset(dat, season=="Summer"))
 summary(CH4_position_lmm)
 plot(CH4_position_lmm)
 
