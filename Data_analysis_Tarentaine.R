@@ -451,7 +451,7 @@ dat_means <- as.data.frame(dat_means)
 str(dat_means) #58 obs of 40 vars
 
 
-#calculate averages of all variables
+#calculate averages of all variables 
 
 data_summary <- dat %>%
   group_by(position_d) %>% #position_d , season
@@ -1135,14 +1135,14 @@ kfineOM_dist <- ggplot(dat_means, aes(dist_to_source_km, fine_OM)) + geom_point(
  geom_text(data = subset(dat_means, position_d == "reservoir"), aes(label = site), size = 2.5, vjust = 1.5, hjust = -0.5) +
   geom_text(data = subset(dat_means, season == "Summer"), aes(x = 16.620201, y = 4, label = sprintf('\u2191')), colour="#1e6b63") +
   geom_text(data = subset(dat_means, season == "Summer"), aes(x = 20, y = 4, label = "TA10"), size=2.5)  + 
-  labs(title = "(b) microbial") 
+  labs(title = "(b) microbes") 
 kfineOM_dist # Note that the ratio is divided by 1000
 
 
 kcoarseOM_dist <- ggplot(dat_means, aes(dist_to_source_km, coarse_OM)) + geom_point(aes(colour=position_d), size=3.5, alpha=0.6) +  theme_bw() + theme(legend.position="top", legend.title=element_blank(), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + ylab("OM stock : k total") + scale_colour_manual(values=c("#91278e", "#1e6b63","#f7921e")) + facet_wrap(~season) + ylim(0,4.5)  + xlab("Distance to source (km)") +
   geom_text(data = subset(dat_means, position_d == "reservoir"), aes(label = site), size = 2.5, vjust = 1.5, hjust = -0.5) +
   geom_text(data = subset(dat_means, season == "Summer"), aes(x = 16.620201, y = 3.8, label = sprintf('\u2191')), colour="#1e6b63")  +
- geom_text(data = subset(dat_means, season == "Summer"), aes(x = 20, y = 3.8, label = "TA10"), size=2.5) + labs(title = "(a) microbial + invertebrate") 
+ geom_text(data = subset(dat_means, season == "Summer"), aes(x = 20, y = 3.8, label = "TA10"), size=2.5) + labs(title = "(a) microbes + invertebrates") 
 kcoarseOM_dist 
 
 #combine

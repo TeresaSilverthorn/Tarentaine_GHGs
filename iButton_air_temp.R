@@ -445,6 +445,10 @@ TA42 <- ggplot(data = subset(daily_mean_water, site=="TA24"), aes(x = Date, y = 
 TA42
 
 
+#Save as a csv
+
+write.csv(daily_mean_water, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/iButtons/Daily_mean_water_temp.csv")
+
 ##########################################################################
 
 #### 4. Determine the relationship between daily mean air and water temperature for C1, by site. In order to extrapolate from the water temperature for C2 and C3 ####
