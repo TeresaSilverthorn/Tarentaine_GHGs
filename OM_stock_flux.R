@@ -102,6 +102,24 @@ OM_flux <- OM_flux %>%
 #F (g/s) = OM_flux_g_m2_s * the surface area of the transect m2 (or alternatively by the width of the transect)
 #Then divide that value by the discharge, C (g/m3) = F/Q
 
+
+## From Romain Re: calculating invertebrate drift: invertebrate density (for you it'd be the mass of leaves) by the volume of water passing through the net. volume is calculated by multiplying area of the net submerged (i.e. the area of the entrance of your net if it was completely submerged) * velocity * time
+
+
+## From Ramirez and Pringle 1998 article about invertebrate drift density, calculated as: number of invertebrates/volume of water sampled: 
+#in my case: Flux (g/m-3)=  AFDM (g) / (A (m2) * Velocity (m s-1)* t (s) )
+
+#you get 0 flux when velocity is 0, so change to a low value: 0.001
+OM_flux <- OM_flux %>%
+  mutate(mean_velocity_m_s = ifelse(mean_velocity_m_s == 0.000, 0.001, mean_velocity_m_s))
+
+
+OM_flux <- OM_flux %>%
+  mutate(OM_g_m3 = AFDM/ (   ( No_samples_in_reach*0.086125) * mean_velocity_m_s * (OM_flux_net_time_mins*60) )  ) %>%
+  mutate(OM_mg_m3 = OM_g_m3 *1000)
+
+
+
 #####################################################
 
 
@@ -111,6 +129,11 @@ flux <- ggplot(data=OM_flux, aes(x=as.factor(site), y=OM_flux_g_m2_s, fill=as.fa
   geom_bar(stat="identity", position=position_dodge())+
   scale_fill_brewer(palette="Paired")+   theme_minimal()
 flux
+
+conc <- ggplot(data=OM_flux, aes(x=as.factor(site), y=OM_g_m3, fill=as.factor(campaign))) +
+  geom_bar(stat="identity", position=position_dodge())+
+  scale_fill_brewer(palette="Paired")+   theme_minimal() + ylim(0,2.5)
+conc
 
 
 stock <- ggplot(data=OM_stock, aes(x=as.factor(site), y=OM_stock_g_m2, fill=as.factor(campaign))) +
@@ -129,13 +152,13 @@ OM_stock_sub <- OM_stock %>%
 str(OM_stock_sub) #56 obs of 3 vars
 
 OM_flux_sub <- OM_flux %>%
-  select(campaign, site, OM_flux_g_m2_s)
+  select(campaign, site, OM_flux_g_m2_s, OM_g_m3, OM_mg_m3)
 
-str(OM_flux_sub) #56 obs. of  3 variables
+str(OM_flux_sub) #56 obs. of  5 variables
 
 OM_stock_flux <- merge(OM_stock_sub, OM_flux_sub, by = c("campaign", "site"))
 
-str(OM_stock_flux) #57 obs of 4 vars
+str(OM_stock_flux) #57 obs of 6 vars
 
 #Save as csv
 
