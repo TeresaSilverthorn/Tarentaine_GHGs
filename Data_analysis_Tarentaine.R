@@ -30,7 +30,7 @@ library(RVAideMemoire) #for pairwise comparison of permanova
 library(geosphere)
 library(pls)
 library(emmeans)
-
+library(scales)
 
 # Set wd for figures
 
@@ -451,11 +451,11 @@ dat_means <- as.data.frame(dat_means)
 str(dat_means) #58 obs of 40 vars
 
 
-#calculate averages of all variables 
+#calculate averages of all variables #For Table S2 in Supplementary Materials
 
 data_summary <- dat %>%
-  group_by(position_d) %>% #position_d , season
-  summarise(across(where(is.numeric), ~ sd(.x, na.rm = TRUE))) %>%
+  group_by(season) %>% #position_d , season
+  summarise(across(where(is.numeric), ~ mean(.x, na.rm = TRUE))) %>%
   t()
 
 mean(dat$CH4_C_mg_m2_h[dat$position_d == "downstream" & dat$site != "TA04" & dat$site != "TA09"],)
@@ -500,18 +500,19 @@ length(common_sites) #18
 #summary up upstream reservoir downstream 
 
 site_summary <- dat %>%
-  filter(site %in% c("TA04", "TA05", "TA06" )) %>%  ##   "TA04", "TA05", "TA06"  #"TA09", "TA10", "TA11"  
-  group_by(site, season, position_d) %>% #add season for ANOVA
+  filter(site %in% c("TA09", "TA10", "TA11" )) %>%  ##   "TA04", "TA05", "TA06"  #"TA09", "TA10", "TA11"  
+  group_by(season, site, position_d) %>% #add season for ANOVA #otherwise site, position_d
   summarise(across(where(is.numeric), ~mean(.x, na.rm = TRUE)))
 
 write.csv(site_summary, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/site_summary.csv")
 
 
 #ANOVA on upstream, reservoir, downstream differences in env vars
-anova <- aov(OM_stock_g_m2 ~ site, data = site_summary)
+anova <- aov(OM_g_m3 ~ site, data = site_summary)
 summary(anova)
 TukeyHSD(anova)
 
+sd(dat$OM_g_m3, na.rm=T)
 
 sd(dat$CO2e)
 ###############################################################################
@@ -602,13 +603,13 @@ sd(dat$OM_flux_g_m2_s)
 # OM per reservoir
 
 OM_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=OM_stock_g_m2)) +
-  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +    ylab(expression("OM stock (g m"^"-2"*")"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "a) Tarentaine") + ylim(0,101) +
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +    ylab(expression("OM stock (g m"^"-2"*")"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "a) TAR") + ylim(0,101) +
   annotate("text", x = 1.8, y = 100, label=sprintf('\u2191'), size=2.5 , colour=(values=c("#26867c"))) +
 annotate("text", x = 2.0, y = 99.5, label="866", size=2.5 , colour=(values=c("#26867c")))  + guides(color = FALSE)
 OM_tarentaine
 
 OM_eauverte<- ggplot(data=eau_verte, aes(position_d, y=OM_stock_g_m2)) +
-  geom_point(aes(colour=position_d, shape=season), size=4, alpha=0.5) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +    ylab(expression("OM stock (g m"^"-2"*")"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) + labs(title = "b) Eau Verte") + guides(color = FALSE) + ylim(0,100)
+  geom_point(aes(colour=position_d, shape=season), size=4, alpha=0.5) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +    ylab(expression("OM stock (g m"^"-2"*")"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) + labs(title = "b) EVE") + guides(color = FALSE) + ylim(0,100)
 OM_eauverte
 
 
@@ -616,44 +617,44 @@ OM_eauverte
 # k coarse per reservoir
 
 kcoarse_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=k_day_coarse)) +
-  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "a) Tarentaine - total") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.20)
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "a) TAR - total") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.20)
 kcoarse_tarentaine
 
 kcoarse_eauverte<- ggplot(data=eau_verte, aes(position_d, y=k_day_coarse)) +
-  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "b) Eau Verte - total") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.20)
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "b) EVE - total") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.20)
 kcoarse_eauverte
 
 
 # k fine per reservoir
 
 kfine_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=k_day_fine)) +
-  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "c) Tarentaine -  microbes") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE)  + ylim(0,0.04)
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "c) TAR -  microbes") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE)  + ylim(0,0.04)
 kfine_tarentaine
 
 kfine_eauverte<- ggplot(data=eau_verte, aes(position_d, y=k_day_fine)) +
-  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "d) Eau Verte - microbes") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.04)
+  geom_point(aes(colour=position_d, shape=season), alpha=0.5, size=4) +    theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black")) +   scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "d) EVE - microbes") + ylab(expression(paste(italic(k), " (", day^-1, ")"))) + guides(color = FALSE) + ylim(0,0.04)
 kfine_eauverte
 
 
 # CO2 per reservoir
 CO2_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=CO2_C_mg_m2_h)) +
   geom_pointrange(aes(ymin = CO2_C_mg_m2_h-CO2_sd, ymax = CO2_C_mg_m2_h+CO2_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = tarentaine_sum) +
-  theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "e) Tarentaine")  + guides(color = FALSE)  + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) 
+  theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "c) TAR")  + guides(color = FALSE)  + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) 
 CO2_tarentaine
 
 CO2_eauverte<- ggplot(data=subset(dat, site=="TA05" | site=="TA04" | site=="TA06") , aes(position_d, y=CO2_C_mg_m2_h)) +
-  geom_pointrange(aes(ymin = CO2_C_mg_m2_h-CO2_sd, ymax = CO2_C_mg_m2_h+CO2_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = eau_verte_sum) + theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "f) Eau Verte")   + guides(color = FALSE) + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) 
+  geom_pointrange(aes(ymin = CO2_C_mg_m2_h-CO2_sd, ymax = CO2_C_mg_m2_h+CO2_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = eau_verte_sum) + theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "d) EVE")   + guides(color = FALSE) + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1)) 
 CO2_eauverte
 
 # CH4 per reservoir
 CH4_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=CH4_C_mg_m2_h)) +
   geom_pointrange(aes(ymin = CH4_C_mg_m2_h-CH4_sd, ymax = CH4_C_mg_m2_h+CH4_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = tarentaine_sum2) + 
-  theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.text.x = element_text(angle = 30, hjust = 1), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "g) Tarentaine")  + guides(color = FALSE) + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))  
+  theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.text.x = element_text(angle = 30, hjust = 1), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "e) TAR")  + guides(color = FALSE) + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))  
 CH4_tarentaine
 
 CH4_eauverte<- ggplot(data=eau_verte, aes(position_d, y=CH4_C_mg_m2_h)) +
   geom_pointrange(aes(ymin = CH4_C_mg_m2_h-CH4_sd, ymax = CH4_C_mg_m2_h+CH4_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = eau_verte_sum2) +
-       theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.text.x = element_text(angle = 30, hjust = 1), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "h) Eau Verte")  + guides(color = FALSE) + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))  
+       theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.text.x = element_text(angle = 30, hjust = 1), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "f) EVE")  + guides(color = FALSE) + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))  
 CH4_eauverte
 
 
@@ -683,11 +684,11 @@ CH4_byreservoir
 dev.off()
 
 #combine all
-tiff("vars_byreservoir", units="in", width=6, height=8.5, res=300)
+tiff("vars_byreservoir", units="in", width=6, height=7, res=300)
 vars_byreservoir <- ggarrange(OM_tarentaine  + rremove("x.text") , OM_eauverte + rremove("x.text"), 
                              # kcoarse_tarentaine + rremove("x.text"),  kcoarse_eauverte + rremove("x.text"), 
                               CO2_tarentaine + rremove("x.text"), CO2_eauverte + rremove("x.text") , 
-                              CH4_tarentaine, CH4_eauverte,ncol = 2, nrow = 4, align="v", common.legend = T, heights= c(1, 1, 1, 1)) 
+                              CH4_tarentaine, CH4_eauverte,ncol = 2, nrow = 3, align="v", common.legend = T, heights= c(1, 1, 1.3)) 
 vars_byreservoir
 dev.off()
 
@@ -769,7 +770,7 @@ CH4_distance
 
 
 tiff("CH4_distancebyposition", units="in", width=9, height=4, res=300)
-CH4_distancebyposition <- ggplot(dat, aes(dist_to_source_km, CH4_C_mg_m2_h)) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  legend.position = "top", legend.justification = "center", axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + scale_colour_manual(values=c("#91278e","#26867c" ,"#f7921e")) + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1)) + xlab("Distance to the source (km)") + facet_wrap(~season)
+CH4_distancebyposition <- ggplot(dat, aes(dist_to_source_km, CH4_C_mg_m2_h)) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  legend.position = "top", legend.justification = "center", axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + scale_colour_manual(values=c("#91278e","#26867c" ,"#f7921e")) + ylab(expression(mg~CH[4]*`-C`~m^-2~h^-1)) + xlab("Distance to the source (km)") + facet_wrap(~season)
 CH4_distancebyposition
 dev.off()
 
@@ -777,11 +778,11 @@ dev.off()
 
 
 #total C in CO2 equivalents and distance to source
-CO2e_distance <- ggplot(dat, aes(dist_to_source_km, CO2e/1000)) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  legend.position = "top", legend.justification = "center", axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + scale_colour_manual(values=c("#91278e","#26867c" ,"#f7921e")) +  facet_wrap(~season) + xlab("Distance to the source (km)") + ylab(expression(g~CO[2]*"-eq m"^-2*" d"^-1))  #ylab(expression("g CO"[2]*"-eq~m^-2~d^-1")) 
+CO2e_distance <- ggplot(dat, aes(dist_to_source_km, CO2e/1000)) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  legend.position = "top", legend.justification = "center", axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + scale_colour_manual(values=c("#91278e","#26867c" ,"#f7921e")) +  facet_wrap(~season) + xlab("Distance to the source (km)") + ylab(expression(g~CO[2]*"-eq m"^-2*" h"^-1))  #ylab(expression("g CO"[2]*"-eq~m^-2~d^-1")) 
 CO2e_distance
 
 #combine CO2 and CH4 and CO2e distance to source by position
-tiff("CO2_CH4_distancebyposition", units="in", width=9, height=11, res=300)
+tiff("CO2_CH4_distancebyposition.tiff", units="in", width=9, height=11, res=300)
 
 CO2_CH4_distancebyposition <- ggarrange(CO2_distancebyposition + theme(axis.title.x = element_blank()) ,
                                         CH4_distancebyposition + theme(axis.title.x = element_blank()),
@@ -1181,13 +1182,13 @@ CH4_OMstock
 dev.off()
 
 tiff("OM_stock", units="in", width=9, height=4, res=300)
-dist_OMstock <- ggplot(dat_means, aes(dist_to_source_km, log(OM_stock_g_m2) )) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.position="top",  legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + ylab(expression("log OM stock (g m"^{-2} * ")")) + xlab("Distance to source (km)") + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
+dist_OMstock <- ggplot(dat_means, aes(dist_to_source_km, OM_stock_g_m2 )) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.position="top",  legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + ylab(expression("OM stock (g m"^{-2} * ")")) + xlab("Distance to source (km)") + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1) +
   geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") 
+  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") + scale_y_log10(labels = label_number()) 
 dist_OMstock
 dev.off()
 
@@ -1242,21 +1243,22 @@ OM_stock_open_up
 dev.off()
 
 
-dist_OMflux <-  ggplot(dat_means, aes(dist_to_source_km, OM_flux_g_m2_s )) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title=element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), legend.position="top", axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  +  scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) +ylab(expression(paste("OM flux (g m"^{-2} * " s"^{-1} * ")"))) +  xlab("Distance to the source (km)") +  facet_wrap(~ season) +
+
+dist_OMtransport <-  ggplot(dat_means, aes(dist_to_source_km, OM_g_m3) ) + geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title=element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), legend.position="top", axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  +  scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) +ylab(expression(paste("OM transport (g m"^{-3} * ")"))) +  xlab("Distance to the source (km)") +  facet_wrap(~ season) +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") 
-dist_OMflux
+  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +  scale_y_log10(labels = label_number()) 
+dist_OMtransport
 
 ## Combine the OM plots ##
 
-tiff("OM_stock_flux", units="in", width=9, height=8, res=300)
+tiff("OM_stock_flux.tiff", units="in", width=9, height=8, res=300)
 
 OM_stock_flux <- ggarrange(dist_OMstock + theme(axis.title.x = element_blank()),  
-                           dist_OMflux, 
+                           dist_OMtransport, 
                           ncol = 1, nrow = 2, align="hv",common.legend = T,legend="top",  
                           labels = c("(a)", "(b)"))
 OM_stock_flux
@@ -2767,15 +2769,15 @@ OMflux_lm <- lm(log(OM_stock_g_m2) ~ dist_to_source_km, data=subset(dat_means, s
 summary(OMflux_lm)
 plot(OMflux_lm)
 
-OMflux_lm <- lm(log(OM_stock_g_m2) ~ dist_to_source_km, data=subset(dat_means, season=="Summer" & position_d=="upstream"))
+OMflux_lm <- lm(log(OM_g_m3) ~ dist_to_source_km, data=subset(dat_means, season=="Fall" & position_d=="downstream"))
 summary(OMflux_lm)
 plot(OMflux_lm)
 
-OMflux_lm <- lm(log(OM_stock_g_m2) ~ dist_to_dam_km, data=subset(dat_means, season=="Fall" ))
+OMflux_lm <- lm(log(OM_g_m3) ~ dist_to_source_km, data=subset(dat_means, season=="Fall" & position_d!="reservoir"))
 summary(OMflux_lm)
 plot(OMflux_lm)
 
-OMflux_pos_lm <- lm(log(OM_stock_g_m2) ~ position_d, data=subset(dat_means, season=="Summer"))
+OMflux_pos_lm <- lm(log(OM_g_m3) ~ position_d, data=subset(dat_means, season=="Fall"))
 summary(OMflux_pos_lm)
 plot(OMflux_pos_lm)
 
@@ -2786,6 +2788,12 @@ summary(OMflux_season_lm)
 plot(OMflux_season_lm)
 
 emmeans(OMflux_season_lm, pairwise ~ season) 
+
+OMtransport_season_lm <- lm(log(OM_g_m3) ~ season, data=dat_means)
+summary(OMtransport_season_lm)
+plot(OMtransport_season_lm)
+
+emmeans(OMtransport_season_lm, pairwise ~ season) 
 
 ###############################################################################
 #### Run LMM for OM flux all sites ####
