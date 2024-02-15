@@ -649,12 +649,12 @@ CO2_eauverte
 # CH4 per reservoir
 CH4_tarentaine<- ggplot(data=tarentaine, aes(position_d, y=CH4_C_mg_m2_h)) +
   geom_pointrange(aes(ymin = CH4_C_mg_m2_h-CH4_sd, ymax = CH4_C_mg_m2_h+CH4_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = tarentaine_sum2) + 
-  theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.text.x = element_text(angle = 30, hjust = 1), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "e) TAR")  + guides(color = FALSE) + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))  
+  theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.text.x = element_text(angle = 30, hjust = 1), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "e) TAR")  + guides(color = FALSE) + ylab(expression(mg~CH[4]*`-C`~m^-2~h^-1))  
 CH4_tarentaine
 
 CH4_eauverte<- ggplot(data=eau_verte, aes(position_d, y=CH4_C_mg_m2_h)) +
   geom_pointrange(aes(ymin = CH4_C_mg_m2_h-CH4_sd, ymax = CH4_C_mg_m2_h+CH4_sd, colour=position_d, shape=season), position = position_dodge(0.8), alpha=0.5, size=1, data = eau_verte_sum2) +
-       theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.text.x = element_text(angle = 30, hjust = 1), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "f) EVE")  + guides(color = FALSE) + ylab(expression(mg~CH[4]*`-C`~m^-2~d^-1))  
+       theme_bw() +   scale_fill_brewer(palette="Paired")+   theme(axis.text.x = element_text(angle = 30, hjust = 1), axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.title = element_blank(), panel.border = element_blank(), axis.title.x=element_blank(), axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 10), axis.text = element_text(size = 10, colour="black"))  + scale_colour_manual(values=c("#317cae","#26867c" ,"#87dad1")) +labs(title = "f) EVE")  + guides(color = FALSE) + ylab(expression(mg~CH[4]*`-C`~m^-2~h^-1))  
 CH4_eauverte
 
 
@@ -684,7 +684,7 @@ CH4_byreservoir
 dev.off()
 
 #combine all
-tiff("vars_byreservoir", units="in", width=6, height=7, res=300)
+tiff("vars_byreservoir.tiff", units="in", width=6, height=7, res=300)
 vars_byreservoir <- ggarrange(OM_tarentaine  + rremove("x.text") , OM_eauverte + rremove("x.text"), 
                              # kcoarse_tarentaine + rremove("x.text"),  kcoarse_eauverte + rremove("x.text"), 
                               CO2_tarentaine + rremove("x.text"), CO2_eauverte + rremove("x.text") , 
@@ -1114,7 +1114,7 @@ kday_coarse
 
 ## Combine the k day plots ##
 
-tiff("kday_fine_coarse", units="in", width=9, height=8, res=300)
+tiff("kday_fine_coarse.tiff", units="in", width=9, height=8, res=300)
 
 kday_fine_coarse <- ggarrange(kday_coarse + theme(axis.title.x = element_blank() ),  
                               kday_fine, 
