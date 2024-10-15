@@ -22,9 +22,6 @@ library(factoextra) #for visualizing CPA
 library(buildmer) #for model selection
 library(data.table)
 library(vegan)
-library(gam)
-library(mgcv) #gamm
-library(itsadug) #plotting gam
 library(RVAideMemoire) #for pairwise comparison of permanova
 library(geosphere)
 library(pls)
@@ -456,6 +453,10 @@ dat_means <- as.data.frame(dat_means)
 
 str(dat_means) #58 obs of 40 vars
 
+#Reorder factor levels
+dat_means$season <- factor(dat_means$season, levels = c("Spring", "Summer", "Fall"))
+dat_means$position_d <- factor(dat_means$position_d, levels = c("upstream", "reservoir", "downstream"))
+
 
 #calculate averages of all variables #For Table S2 in Supplementary Materials
 
@@ -716,15 +717,12 @@ predictor_vars <- dat %>%
          canopy_cover_., wetted_width_m, discharge_m3_s,
          mean_velocity_m_s, DailyMeanWaterTemp_C, temp_C,
          substrate_complexity, fine_substrate, mean_depth_cm,
-         masl, dist_to_source_km, OM_stock_g_m2)
+         masl, Distance_to_source_km, OM_stock_g_m2)
 
 # Calculate Pearson correlation coefficients (R) and p-values for selected variables
 correlation_results <- data.frame(
   Pearson_R = sapply(predictor_vars, function(var) cor(var, predictor_vars$CH4_C_mg_m2_h)),
   p_value = sapply(predictor_vars, function(var) cor.test(var, predictor_vars$CH4_C_mg_m2_h)$p.value))
-
-
-
 
 
 
@@ -1017,15 +1015,14 @@ dev.off()
 #### Decomposition #### 
 
 tiff("k_fine", units="in", width=9, height=4, res=300)
-k_fine <- ggplot(dat_means, aes(dist_to_source_km, k_dday_fine) ) +
-  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) microbes") + facet_wrap(~season) +
-scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
-  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") 
+k_fine <- ggplot(dat_means, aes(Distance_to_source_km, k_dday_fine) ) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) microbes") + facet_wrap(~season) 
+  #geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
+  #geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
+ # geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
+ # geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
+ # geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
+ # geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") 
 k_fine
 dev.off()
 
@@ -1046,14 +1043,14 @@ kratio
 
 
 tiff("k_coarse", units="in", width=9, height=4, res=300)
-k_coarse <- ggplot(dat_means, aes(dist_to_source_km, k_dday_coarse) ) +
-  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), legend.position="top",  axis.ticks.x=element_blank(), legend.title=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + facet_wrap(~season) + labs(title = "(a) invertebrates + microbes") +
-  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1) +
-  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
-  geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed")  
+k_coarse <- ggplot(dat_means, aes(Distance_to_source_km, k_dday_coarse) ) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), legend.position="top",  axis.ticks.x=element_blank(), legend.title=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + facet_wrap(~season) + labs(title = "(a) invertebrates + microbes") 
+ # geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
+  #geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
+ # geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
+  #geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Summer"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
+  #geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
+  #geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed")  
 k_coarse
 dev.off()
 
@@ -1083,7 +1080,7 @@ kcoarse_dist
 
 ## Combine the k plots ##
 
-tiff("k_fine_coarse", units="in", width=9, height=8, res=300)
+tiff("k_fine_coarse.tiff", units="in", width=9, height=8, res=300)
 
 k_fine_coarse <- ggarrange(k_coarse + theme(axis.title.x = element_blank() ),  
                            k_fine, 
@@ -1096,7 +1093,7 @@ dev.off()
 #### For Fanny: k per day (not dday) ####
 
 
-kday_fine <- ggplot(dat_means, aes(dist_to_source_km, k_day_fine) ) +
+kday_fine <- ggplot(dat_means, aes(Distance_to_source_km, k_day_fine) ) +
   geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + ylab(expression(paste(italic(k), " (", day^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) microbes") +    scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + facet_wrap(~season) +
   geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="solid") +
   geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
@@ -1392,201 +1389,6 @@ OMfall <-ggplot() +
   scale_fill_viridis_c(option="plasma", na.value="grey40", oob=scales::squish, direction = -1) +
   theme_classic()+ ggtitle("OM stock Fall") + xlab("Longitude") + ylab("Latitude") +  theme(plot.title = element_text(hjust = 0.5), axis.text = element_text(size = 8), legend.position ="bottom",legend.text = element_text(size=8)) 
 OMfall
-
-##############################################################################
-
-##### Run Random Forest Model on the data ####
-
-# Goal: to use the sites upstream of the 2 main dams, find the drivers of GHG fluxes and OM, and then using that relationship predict the downstream values, then compare those to the actual impacted values to see what effect the dams have. 
-
-
-
-#### run RF for CO2 ####
-
-# Subset 
-dat_rf <- dat %>% 
- # filter(site %in% upstream_sites)  %>%
-  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CH4_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel)
-
-#str(dat_upstream)
-str(dat_rf)
-
-
-# Convert the tibble to a data frame
-#dat_upstream <- as.data.frame(dat_upstream)
-dat_rf <- as.data.frame(dat_rf)
-
-#The training data is used for building a model, while the testing data is used for making predictions. This means after fitting a model on the training data set, finding of the errors and minimizing those error, the model is used for making predictions on the unseen data which is the test data.
-
-#split <- sample.split(dat_upstream, SplitRatio = 0.8) 
-#split 
-
-#can also trying using the entire data set
-
-split <- sample.split(dat_rf, SplitRatio = 0.8) 
-split 
-
-#The split method splits the data into train and test datasets with a ratio of 0.8 This means 80% of our dataset is passed in the training dataset and 20% in the testing dataset.
-
-data_train <- subset(dat_rf, split == "TRUE") 
-data_test <- subset(dat_rf, split == "FALSE") 
-
-any_na <- any(is.na(data_train))
-
-na_columns <- colnames(data_train)[apply(data_train, 2, anyNA)]
-
-dim(data_train)
-
-str(data_train)
-
-
-#Find optimized value of number of random variables
-bestmtry <- tuneRF(data_train,data_train$CO2_C_mg_m2_h,stepFactor = 1.2, improve = 0.01, trace=T, plot= T)  #9
-
-#create RF model: 
-model <- randomForest(CO2_C_mg_m2_h~.,data= data_train, ntree = 1000, mtry = 9, importance = TRUE) #need to determine what is the best value for mtry and ntree
-model 
-
-plot(model)
-
-imp <- randomForest::importance(model)  # returns the importance of the variables
-
-varImpPlot(model)  # visualizing the importance of variables of the model.
-
-impvar <- rownames(imp)[order(imp[, 1], decreasing=TRUE)]
-
-# Select the top 6 variables
-top_variables <- impvar[1:6]
-
-op <- par(mfrow=c(2, 3))
-
-for (i in seq_along(top_variables)) {
-  partialPlot(model, data_train, impvar[i], xlab=impvar[i],
-              main=paste("Partial Dependence on", impvar[i]),
-              ylim=c(30, 70))
-}
-par(op)
-
-# Visualize variable importance 
-
-# Get variable importance from the model fit
-ImpData <- as.data.frame(importance(model))
-ImpData$Var.Names <- row.names(ImpData)
-
-ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
-  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +
-  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +
-  theme_light() +
-  coord_flip() +
-  theme(
-    legend.position="bottom",
-    panel.grid.major.y = element_blank(),
-    panel.border = element_blank(),
-    axis.ticks.y = element_blank()
-  )
-
-
-#Make predictions
-
-pred_test <- predict(model, newdata = data_test)
-
-table(pred_test, data_test$CO2_C_mg_m2_h)
-
-#The issue is that RF cannot extrapolate outside of it's dataset, so a linear regression might be better
-
-
-#Evaluation of predictions using RMSE
-sqrt(mean((pred_test - data_test$CO2_C_mg_m2_h)^2))
-#63.63705
-
-#Goodness of fit of your regression model, you can calculate the R-squared value:
-1 - sum((data_test$CO2_C_mg_m2_h - pred_test)^2) / sum((data_test$CO2_C_mg_m2_h - mean(data_test$CO2_C_mg_m2_h))^2)
-#0.5937679
-
-
-
-#### run RF for CH4 ####
-
-# Subset 
-dat_rf <- dat %>% 
-  # filter(site %in% upstream_sites)  %>%
-  select(-date, -site, -start_time, -end_time, -ID_unique,  -campaign, -transect, -lat, -lon, -LML_coarse, -LML_fine, -k_day_coarse,  -k_day_fine, -CO2_C_mg_m2_h, -flow_state, -season, -cobble, -boulder, -pebble_gravel)
-
-#str(dat_upstream)
-str(dat_rf)
-
-
-# Convert the tibble to a data frame
-#dat_upstream <- as.data.frame(dat_upstream)
-dat_rf <- as.data.frame(dat_rf)
-
-#The training data is used for building a model, while the testing data is used for making predictions. This means after fitting a model on the training data set, finding of the errors and minimizing those error, the model is used for making predictions on the unseen data which is the test data.
-
-#split <- sample.split(dat_upstream, SplitRatio = 0.8) 
-#split 
-
-#can also trying using the entire data set
-
-split <- sample.split(dat_rf, SplitRatio = 0.8) 
-split 
-
-#The split method splits the data into train and test datasets with a ratio of 0.8 This means 80% of our dataset is passed in the training dataset and 20% in the testing dataset.
-
-data_train <- subset(dat_rf, split == "TRUE") 
-data_test <- subset(dat_rf, split == "FALSE") 
-
-any_na <- any(is.na(data_train))
-
-na_columns <- colnames(data_train)[apply(data_train, 2, anyNA)]
-
-dim(data_train)
-
-str(data_train)
-
-#Find optimized value of number of random variables
-bestmtry <- tuneRF(data_train,data_train$CH4_C_mg_m2_h,stepFactor = 1.2, improve = 0.01, trace=T, plot= T)  #9
-
-#create RF model for CH4
-modelCH4 <- randomForest(CH4_C_mg_m2_h~.,data= data_train, ntree = 400, mtry = 9, importance = TRUE) #need to determine what is the best value for mtry and ntree
-modelCH4 
-
-plot(modelCH4)
-
-imp <- randomForest::importance(modelCH4)  # returns the importance of the variables
-
-varImpPlot(modelCH4)  # visualizing the importance of variables of the model.
-
-impvar <- rownames(imp)[order(imp[, 1], decreasing=TRUE)]
-
-# Select the top 6 variables
-top_variables <- impvar[1:6]
-
-op <- par(mfrow=c(2, 3))
-
-for (i in seq_along(top_variables)) {
-  partialPlot(model, data_train, impvar[i], xlab=impvar[i],
-              main=paste("Partial Dependence on", impvar[i]),
-              ylim=c(30, 70))
-}
-par(op)
-
-# Visualize variable importance 
-
-# Get variable importance from the model fit
-ImpData <- as.data.frame(sw(modelCH4))
-ImpData$Var.Names <- row.names(ImpData)
-
-ggplot(ImpData, aes(x=Var.Names, y=`%IncMSE`)) +
-  geom_segment( aes(x=Var.Names, xend=Var.Names, y=0, yend=`%IncMSE`), color="skyblue") +
-  geom_point(aes(size = IncNodePurity), color="blue", alpha=0.6) +
-  theme_light() +
-  coord_flip() +
-  theme(
-    legend.position="bottom",
-    panel.grid.major.y = element_blank(),
-    panel.border = element_blank(),
-    axis.ticks.y = element_blank()
-  )
 
 
 ################################################################################
@@ -3194,27 +2996,143 @@ summary(kcoarse_dredge_lmer)
 
 #### Run LMs by season ####
 
-kcoarse_spring_lm <- lm(log(k_dday_coarse) ~ dist_to_source_km, data=subset(dat_means, season=="Fall" & position_d=="downstream"))
-summary(kcoarse_spring_lm)
+#### kcoarse ####
+
+kcoarse_spring_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means, season=="Spring" & position_d=="upstream"))
+summary(kcoarse_spring_lm) #no sig
 plot(kcoarse_spring_lm)
 
-kcoarse_lm <- lm(log(k_dday_coarse) ~ dist_to_source_km, data=subset(dat_means, season=="Summer" & k_dday_coarse <=0.013))
+kcoarse_spring_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means, season=="Spring" & position_d=="downstream"))
+summary(kcoarse_spring_lm) #not sig
+plot(kcoarse_spring_lm)
+
+kcoarse_summer_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means, season=="Summer" & position_d=="upstream"))
+summary(kcoarse_summer_lm)  #p 0.04
+plot(kcoarse_summer_lm)
+
+kcoarse_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means, season=="Summer" & position_d=="upstream" & k_dday_coarse <=0.013))
 summary(kcoarse_lm)  #Note: with the highest value of kcoarse removed in the summer, the relationship is no longer significant.
 plot(kcoarse_lm)
 
-kcoarse_pos_lm <- lm(log(k_dday_coarse) ~ position_d, data=subset(dat_means, season=="Fall"))
+kcoarse_summer_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means, season=="Summer" & position_d=="downstream"))
+summary(kcoarse_summer_lm) #not sig
+plot(kcoarse_summer_lm)
+
+kcoarse_fall_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means, season=="Fall" & position_d=="upstream"))
+summary(kcoarse_fall_lm) #not sig
+plot(kcoarse_fall_lm)
+
+
+kcoarse_fall_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means, season=="Fall" & position_d=="downstream"))
+summary(kcoarse_fall_lm) #not sig
+plot(kcoarse_fall_lm)
+
+##entire network
+
+kcoarse_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means)) #all seasons
+summary(kcoarse_lm) #p 0.0492
+plot(kcoarse_lm)
+
+kcoarse_spring_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means, season=="Spring"))
+summary(kcoarse_spring_lm) #not sig
+plot(kcoarse_spring_lm)
+
+kcoarse_summer_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means, season=="Summer"))
+summary(kcoarse_summer_lm) #not sig
+plot(kcoarse_summer_lm)
+
+kcoarse_fall_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(dat_means, season=="Fall"))
+summary(kcoarse_fall_lm) #not sig, but close p = 0.0511
+plot(kcoarse_fall_lm)
+
+#entire netoworkdistance to dam
+
+kcoarse_lm <- lm(log(k_dday_coarse) ~ dist_ds_dam_km, data=subset(dat_means))
+summary(kcoarse_lm) #p 0.0144
+plot(kcoarse_lm)
+
+kcoarse_spring_lm <- lm(log(k_dday_coarse) ~ dist_ds_dam_km, data=subset(dat_means, season=="Spring"))
+summary(kcoarse_spring_lm) #not sig
+plot(kcoarse_spring_lm)
+
+kcoarse_summer_lm <- lm(log(k_dday_coarse) ~ dist_ds_dam_km, data=subset(dat_means, season=="Summer"))
+summary(kcoarse_summer_lm) #not sig
+plot(kcoarse_summer_lm)
+
+kcoarse_fall_lm <- lm(log(k_dday_coarse) ~ dist_ds_dam_km, data=subset(dat_means, season=="Fall"))
+summary(kcoarse_fall_lm) #sig p = 0.03
+plot(kcoarse_fall_lm)
+##
+
+
+kcoarse_pos_lm <- lm(log(k_dday_coarse) ~ position_d, data=dat_means) #subset season=="Fall"
 summary(kcoarse_pos_lm)
-plot(kcoarse_pos_lm)
+#plot(kcoarse_pos_lm)
 
 emmeans(kcoarse_pos_lm, pairwise ~ position_d) #post hoc test
 
-kcoarse_season_lm <- lm(log(k_dday_coarse) ~ season, data=dat_means)
+kcoarse_season_lm <- lm(log(k_dday_coarse) ~ season, data=dat_means) #if k dday, do not compare season as accounting for the effect of temperature
 summary(kcoarse_season_lm)
-plot(kcoarse_season_lm)
+#plot(kcoarse_season_lm)
 
 emmeans(kcoarse_season_lm, pairwise ~ season) 
 
 mean(dat_means$`k_dday_coarse`[dat_means$season == "Spring"])
+
+
+#### Run LMs by season ####
+#### kfine ####
+
+
+kfine_spring_lm <- lm(log(k_dday_fine) ~ Distance_to_source_km, data=subset(dat_means, season=="Spring" & position_d=="upstream" ))
+summary(kfine_spring_lm) #no sig
+plot(kfine_spring_lm)
+
+kfine_spring_lm <- lm(log(k_dday_fine) ~ Distance_to_source_km, data=subset(dat_means, season=="Spring" & position_d=="downstream" ))
+summary(kfine_spring_lm) #no sig
+plot(kfine_spring_lm)
+
+kfine_summer_lm <- lm(log(k_dday_fine) ~ Distance_to_source_km, data=subset(dat_means, season=="Summer" & position_d=="upstream" ))
+summary(kfine_summer_lm) #no sig
+plot(kfine_summer_lm)
+
+kfine_summer_lm <- lm(log(k_dday_fine) ~ Distance_to_source_km, data=subset(dat_means, season=="Summer" & position_d=="downstream" ))
+summary(kfine_summer_lm) #no sig
+plot(kfine_summer_lm)
+
+kfine_fall_lm <- lm(log(k_dday_fine) ~ Distance_to_source_km, data=subset(dat_means, season=="Fall" & position_d=="upstream" ))
+summary(kfine_fall_lm) #no sig
+plot(kfine_fall_lm)
+
+kfine_fall_lm <- lm(log(k_dday_fine) ~ Distance_to_source_km, data=subset(dat_means, season=="Fall" & position_d=="downstream" ))
+summary(kfine_fall_lm) #no sig
+plot(kfine_fall_lm)
+
+#entire network
+kcoarse_lm <- lm(log(k_dday_fine) ~ dist_ds_dam_km, data=subset(dat_means))
+summary(kcoarse_lm) #not sig
+plot(kcoarse_lm)
+
+kcoarse_lm <- lm(log(k_dday_fine) ~ Distance_to_source_km, data=subset(dat_means))
+summary(kcoarse_lm) #not sig
+plot(kcoarse_lm)
+
+kfine_spring_lm <- lm(log(k_dday_fine) ~ dist_to_source_km, data=subset(dat_means, season=="Fall" ))
+summary(kfine_spring_lm)
+plot(kfine_spring_lm)
+
+kfine_pos_lm <- lm(log(k_dday_fine) ~ position_d, data=subset(dat_means, season=="Fall"))
+summary(kfine_pos_lm)
+plot(kfine_pos_lm)
+
+emmeans(kfine_pos_lm, pairwise ~ position_d) #post hoc test
+
+kfine_season_lm <- lm(log(k_dday_fine) ~ season, data=dat_means)
+summary(kfine_season_lm)
+plot(kfine_season_lm)
+
+emmeans(kfine_season_lm, pairwise ~ season) 
+
 
 
 ############################################################################
@@ -3236,14 +3154,14 @@ dat_lm_kfine_up_scaled <- cbind(dat_lm_kfine_up_scaled, k_dday_fine = dat_lm_kfi
 #Test model relationships linear vs polynomial
 
 #fit linear mixed effects model 
-kfine_lmer<- lmer(log(k_dday_fine)  ~ dist_to_source_km  + (1 | site), data = dat_lm_kfine_up_scaled)
+kfine_lmer<- lmer(log(k_dday_fine)  ~ Distance_to_source_km  + (1 | site), data = dat_lm_kfine_up_scaled)
 summary(kfine_lmer)
 plot(kfine_lmer)
 qqnorm(resid(kfine_lmer)) 
 r.squaredGLMM(kfine_lmer) #.003
 AIC(kfine_lmer) #20
 
-kfine_lmer_poly<- lmer(log(k_dday_fine) ~ poly(dist_to_source_km,2)  + (1 | site), data = dat_lm_kfine_up_scaled)
+kfine_lmer_poly<- lmer(log(k_dday_fine) ~ poly(Distance_to_source_km,2)  + (1 | site), data = dat_lm_kfine_up_scaled)
 summary(kfine_lmer_poly)
 plot(kfine_lmer_poly)
 qqnorm(resid(kfine_lmer_poly)) 
@@ -3270,14 +3188,14 @@ dat_lm_kfine_d_scaled <- cbind(dat_lm_kfine_d_scaled, k_dday_fine = dat_lm_kfine
 #Test model relationships linear vs polynomial
 
 #fit linear mixed effects model 
-kfine_lmer_d<- lmer(log(k_dday_fine)  ~ dist_to_source_km  + (1 | site), data = dat_lm_kfine_d_scaled)
+kfine_lmer_d<- lmer(log(k_dday_fine)  ~ Distance_to_source_km  + (1 | site), data = dat_lm_kfine_d_scaled)
 summary(kfine_lmer_d)
 plot(kfine_lmer_d)
 qqnorm(resid(kfine_lmer_d)) 
 r.squaredGLMM(kfine_lmer_d) #.0003
 AIC(kfine_lmer_d) #7.9
 
-kfine_lmer_poly<- lmer(log(k_dday_fine) ~ poly(dist_to_source_km,2)  + (1 | site), data = dat_lm_kfine_d_scaled)
+kfine_lmer_poly<- lmer(log(k_dday_fine) ~ poly(Distance_to_source_km,2)  + (1 | site), data = dat_lm_kfine_d_scaled)
 summary(kfine_lmer_poly)
 plot(kfine_lmer_poly)
 qqnorm(resid(kfine_lmer_poly)) 
@@ -3379,23 +3297,7 @@ summary(kfine_lmer)
 plot(kfine_lmer)
 vif(kfine_lmer)
 
-#### Run LMs by season ###
 
-kfine_spring_lm <- lm(log(k_dday_fine) ~ dist_to_source_km, data=subset(dat_means, season=="Fall" ))
-summary(kfine_spring_lm)
-plot(kfine_spring_lm)
-
-kfine_pos_lm <- lm(log(k_dday_fine) ~ position_d, data=subset(dat_means, season=="Fall"))
-summary(kfine_pos_lm)
-plot(kfine_pos_lm)
-
-emmeans(kfine_pos_lm, pairwise ~ position_d) #post hoc test
-
-kfine_season_lm <- lm(log(k_dday_fine) ~ season, data=dat_means)
-summary(kfine_season_lm)
-plot(kfine_season_lm)
-
-emmeans(kfine_season_lm, pairwise ~ season) 
 
 ##################################################################################
 ##### For Fanny: LMMs with k per day (not dday) ####
@@ -3642,719 +3544,7 @@ semPaths(fitmCO2, intercept = FALSE,
 
 semPaths(fitmCO2, "std", edge.label.cex = 1.0, curvePivot = TRUE) #nice layout
 
-################################################################################
-
-#### Run Mantel tests ####
-
-#response variable matrices
-CO2flux <- dat %>%
-  select(CO2_C_mg_m2_h)
-
-CH4flux <- dat %>%
-  select(CH4_C_mg_m2_h)
-
-stock_OM <- dat_means %>%
-  select(OM_stock_g_m2)
-
-k_coarse <- dat_means %>%
-  select(k_dday_coarse)
-
-k_fine <- dat_means %>%
-  select(k_dday_fine)
-
-
-#Make a matrix of euclidean distances
-geo <- data.frame(dat$lon, dat$lat)
-geo_means <- data.frame(dat_means$lon, dat_means$lat)
-
-#Load in network distances (calculated by Herve Pella)
-net_dist <- read.csv("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Network distances/network_dist_tarentaine.csv")
-
-#Need to make it into a matrix
-site <- sort(unique(c(net_dist$nom1, net_dist$nom2)))
-matrix_data <- matrix(NA, nrow = length(site), ncol = length(site), dimnames = list(site, site))
-
-# Fill the matrix with distances
-for (i in 1:nrow(net_dist)) {
-  site1 <- net_dist$nom1[i]
-  site2 <- net_dist$nom2[i]
-  distance <- net_dist$distance.m[i]
-  
-  matrix_data[site1, site2] <- distance
-  matrix_data[site2, site1] <- distance
-}
-
-diag(matrix_data) <- 0
-
-#rename
-net_dist <- matrix_data
-
-#write as csv
-
-write.csv(matrix_data, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Network distances/network_dist_tarentaine_matrix.csv")
-
-#make a vector for damming metrics
-dam.metrics <-  dat %>%
-  select(percent_open_downstream, percent_open_downstream, dist_ds_dam_km)
-
-#make a vector for damming metrics
-dam.metrics.means <-  dat_means %>%
-  select(percent_open_downstream, percent_open_downstream, dist_ds_dam_km)
-
-#environmental vector
-env <- dat  %>%
-  select(water_temp_C, water_pH, water_conductivity_us_cm, DO_mg_L, DO_., canopy_cover_., wetted_width_m, discharge_m3_s, mean_velocity_m_s, DailyMeanWaterTemp_C, temp_C, substrate_complexity)
-
-env_means <- dat_means  %>%
-  select(water_temp_C, water_pH, water_conductivity_us_cm, DO_mg_L, DO_., canopy_cover_., wetted_width_m, discharge_m3_s, mean_velocity_m_s, DailyMeanWaterTemp_C, temp_C, substrate_complexity)
-
-#scale environmental data
-scale.env <- scale(env, center = TRUE, scale = TRUE)
-scale.env.means <- scale(env_means, center = TRUE, scale = TRUE)
-
-#can also make a vector for dam matrices
-
-#Now we have to convert these subsets into distance matrices.
-
-#for the response variable
-dist.CO2flux <- dist(CO2flux, method = "euclidean")
-dist.CH4flux <- dist(CH4flux, method = "euclidean")
-dist.OMstock <- dist(stock_OM, method = "euclidean")
-dist.kcoarse <- dist(k_coarse, method = "euclidean")
-dist.kfine <- dist(k_fine, method = "euclidean")
-dist.dam.metrics <- dist(dam.metrics, method = "euclidean")
-dist.dam.metrics.means <- dist(dam.metrics.means, method = "euclidean")
-
-#environmental vector - euclidean distance - or bray? Tutorial says euclidean
-dist.env <- dist(scale.env, method = "euclidean")
-dist.env.means <- dist(scale.env.means, method = "euclidean")
-
-#geographic distance - Haversine distance
-
-#geographic data frame - haversine distance 
-d.geo = distm(geo, fun = distHaversine)
-dist.geo.hav = as.dist(d.geo)
-
-d.geo.means = distm(geo_means, fun = distHaversine)
-dist.geo.hav.means = as.dist(d.geo.means)
-
-#now we can run the Mantel command
-
-#do environmental variables vary with geographic distance?
-envgeo <- mantel(dist.env, dist.geo.hav, method = "spearman", permutations = 999, na.rm = TRUE)
-envgeo #Mantel statistic r: 0.1762 Significance: 0.001 
-
-
-#does the response variable vary with environmental distance?
-CO2_env <- mantel(dist.CO2flux, dist.env, method = "spearman", permutations = 999, na.rm = TRUE)
-CO2_env #if taking a super long time, try reducing permutations 
-#Mantel statistic r: 0.1031 Significance: 0.001 
-
-CH4_env <- mantel(dist.CH4flux, dist.env, method = "spearman", permutations = 999, na.rm = TRUE)
-CH4_env #Mantel statistic r: 0.1166   Significance: 0.003
-
-OMstock_env <- mantel(dist.OMstock, dist.env.means, method = "spearman", permutations = 999, na.rm = TRUE)
-OMstock_env  #Mantel statistic r: 0.3276 Significance: 0.001 
-
-kcoarse_env <- mantel(dist.kcoarse, dist.env.means, method = "spearman", permutations = 999, na.rm = TRUE)
-kcoarse_env #Mantel statistic r: -0.008908  Significance: 0.508
-
-kfine_env <- mantel(dist.kfine, dist.env.means, method = "spearman", permutations = 999, na.rm = TRUE)
-kfine_env  #Mantel statistic r: -0.06784  Significance: 0.819 
-
-# Run a partial Mantel test
-#Which is fluxes vs geographical distance, accounting for env distance
-
-CO2partial <- mantel.partial(dist.CO2flux, dist.env, dist.geo.hav, method="pearson", permutations=999)
-CO2partial #this is removing any spatial autocorrelation if the env matrix explains the flux matrix
-#Mantel statistic r: 0.2208     Significance: 0.004
-
-CH4partial <- mantel.partial(dist.CH4flux, dist.env, dist.geo.hav, method="pearson", permutations=999)
-CH4partial # Mantel statistic r: 0.08764 Significance: 0.043
-
-OMstockpartial <- mantel.partial(dist.OMstock, dist.env.means, dist.geo.hav.means, method="pearson", permutations=999)
-OMstockpartial #Mantel statistic r: 0.3048 Significance: 0.022 
-
-kcoarsepartial <- mantel.partial(dist.kcoarse, dist.env.means, dist.geo.hav.means, method="pearson", permutations=999)
-kcoarsepartial  #Mantel statistic r: -0.02291   Significance: 0.561
-
-kfinepartial <- mantel.partial(dist.kfine, dist.env.means, dist.geo.hav.means, method="pearson", permutations=999)
-kfinepartial  #  Mantel statistic r: -0.1001 Significance: 0.891
-
-CO2partial2 <- mantel.partial(dist.CO2flux, dist.geo.hav, dist.env, method="pearson", permutations=999)
-CO2partial2 ##This is removing the effect of env variables if euclidean distance explains fluxes
-#Mantel statistic r: -0.03577 Significance: 0.871
-
-CH4partial2 <- mantel.partial(dist.CH4flux, dist.geo.hav, dist.env, method="pearson", permutations=999)
-CH4partial2 #Mantel statistic r: -0.126  Significance: 1
-
-OMstockpartial2 <- mantel.partial(dist.OMstock, dist.geo.hav.means, dist.env.means, method="pearson", permutations=999)
-OMstockpartial2 #Mantel statistic r: -0.1148 Significance: 0.996 
-
-kcoarsepartial2 <- mantel.partial(dist.kcoarse, dist.geo.hav.means, dist.env.means, method="pearson", permutations=999)
-kcoarsepartial2  #Mantel statistic r: 0.05975  Significance: 0.227
-
-kfinepartial2 <- mantel.partial(dist.kfine, dist.geo.hav.means, dist.env.means, method="pearson", permutations=999)
-kfinepartial2  #  Mantel statistic r: 0.008369  Significance: 0.409 
-
-CO2partial3 <- mantel.partial(dist.CO2flux, dist.dam.metrics, dist.geo.hav, method="pearson", permutations=999) #Mantel statistic r: -0.06446   Significance: 0.998
-CO2partial3 ##This is removing the effect of env distance if damming variables explain fluxes
-
-CH4partial3 <- mantel.partial(dist.CH4flux, dist.dam.metrics, dist.geo.hav, method="pearson", permutations=999)
-CH4partial3  #Mantel statistic r: 0.1569  Significance: 0.001
-
-OMstockpartial3 <- mantel.partial(dist.OMstock, dist.dam.metrics.means, dist.geo.hav.means, method="pearson", permutations=999)
-OMstockpartial3 #Mantel statistic r: 0.008879 Significance: 0.34
-
-kcoarsepartial3 <- mantel.partial(dist.kcoarse, dist.dam.metrics.means, dist.geo.hav.means, method="pearson", permutations=999)
-kcoarsepartial3 #Mantel statistic r: -0.1215  Significance: 0.99 
-
-kfinepartial3 <- mantel.partial(dist.kfine, dist.dam.metrics.means, dist.geo.hav.means, method="pearson", permutations=999)
-kfinepartial3 #Mantel statistic r: -0.09975  Significance: 0.937
-
-
-######################################################################
-#### Mantel test: effects of network distance? must do this by campaign ####
-
-#Make response variable data frame per campaign, with site averages to run against the network distances
-
-#response variable matrices
-CO2flux_1 <- dat_means %>%
-  filter(season == "Spring") %>%
-  select(CO2_C_mg_m2_h) # 20 obs
-
-CO2flux_2 <- dat_means %>%
-  filter(season == "Summer") %>%
-  select(CO2_C_mg_m2_h)  #19 obs #No TA12 for C2
-
-CO2flux_3 <- dat_means %>%
-  filter(season == "Fall") %>%
-  select(CO2_C_mg_m2_h)  #19 obs #no TA02 for C3, instead we have TA02, and no TA12 for C3
-
-CH4flux_1 <- dat_means %>%
-  filter(season == "Spring") %>%
-  select(CH4_C_mg_m2_h)  #20 obs
-
-CH4flux_2 <- dat_means %>%
-  filter(season == "Summer") %>%
-  select(CH4_C_mg_m2_h)  #19 obs
-
-CH4flux_3 <- dat_means %>%
-  filter(season == "Fall") %>%
-  select(CH4_C_mg_m2_h)   #19 obs
-
-stock_OM_1 <- dat_means %>%
-  filter(season == "Spring") %>%
-  select(OM_stock_g_m2) #20 obs
-
-stock_OM_2 <- dat_means %>%
-  filter(season == "Summer") %>%
-  select(OM_stock_g_m2) #19 obs
-
-stock_OM_3 <- dat_means %>%
-  filter(season == "Fall") %>%
-  select(OM_stock_g_m2) #19 obs
-
-k_coarse_1 <- dat_means %>%
-  filter(season == "Spring") %>%
-  select(k_dday_coarse)   #20 obs
-
-k_coarse_2 <- dat_means %>%
-  filter(season == "Summer") %>%
-  select(k_dday_coarse)   #19 obs
-
-k_coarse_3 <- dat_means %>%
-  filter(season == "Fall") %>%
-  select(k_dday_coarse)   #19 obs
-
-k_fine_1 <- dat_means %>%
-  filter(season == "Spring") %>%
-  select(k_dday_fine)   #20 obs
-
-k_fine_2 <- dat_means %>%
-  filter(season == "Summer") %>%
-  select(k_dday_fine)   # 19 obs
- 
-k_fine_3 <- dat_means %>%
-  filter(season == "Fall") %>%
-  select(k_dday_fine)   #19 obs
-
-#Make distance matrix
-
-#for the response variable
-dist.CO2flux_1 <- dist(CO2flux_1, method = "euclidean")
-dist.CO2flux_2 <- dist(CO2flux_2, method = "euclidean")
-dist.CO2flux_3 <- dist(CO2flux_3, method = "euclidean")
-dist.CH4flux_1 <- dist(CH4flux_1, method = "euclidean")
-dist.CH4flux_2 <- dist(CH4flux_2, method = "euclidean")
-dist.CH4flux_3 <- dist(CH4flux_3, method = "euclidean")
-dist.stock_OM_1 <- dist(stock_OM_1, method = "euclidean")
-dist.stock_OM_2 <- dist(stock_OM_2, method = "euclidean")
-dist.stock_OM_3 <- dist(stock_OM_3, method = "euclidean")
-dist.k_coarse_1 <- dist(k_coarse_1, method = "euclidean")
-dist.k_coarse_2 <- dist(k_coarse_2, method = "euclidean")
-dist.k_coarse_3 <- dist(k_coarse_3, method = "euclidean")
-dist.k_fine_1 <- dist(k_fine_1, method = "euclidean")
-dist.k_fine_2 <- dist(k_fine_2, method = "euclidean")
-dist.k_fine_3 <- dist(k_fine_3, method = "euclidean")
-
-#env var matrix by campaign
-env_means_1 <- dat_means  %>%
-  filter(season == "Spring") %>%
-  select(water_temp_C, water_pH, water_conductivity_us_cm, DO_mg_L, DO_., canopy_cover_., wetted_width_m, discharge_m3_s, mean_velocity_m_s, DailyMeanWaterTemp_C, temp_C, substrate_complexity)
-
-env_means_2 <- dat_means  %>%
-  filter(season == "Summer") %>%
-  select(water_temp_C, water_pH, water_conductivity_us_cm, DO_mg_L, DO_., canopy_cover_., wetted_width_m, discharge_m3_s, mean_velocity_m_s, DailyMeanWaterTemp_C, temp_C, substrate_complexity)
-
-env_means_3 <- dat_means  %>%
-  filter(season == "Fall") %>%
-  select(water_temp_C, water_pH, water_conductivity_us_cm, DO_mg_L, DO_., canopy_cover_., wetted_width_m, discharge_m3_s, mean_velocity_m_s, DailyMeanWaterTemp_C, temp_C, substrate_complexity)
-
-#scale environmental data
-scale.env.means1 <- scale(env_means_1, center = TRUE, scale = TRUE)
-scale.env.means2 <- scale(env_means_2, center = TRUE, scale = TRUE)
-scale.env.means3 <- scale(env_means_3, center = TRUE, scale = TRUE)
-
-dist.env.means1 <- dist(scale.env.means1, method = "euclidean")
-dist.env.means2 <- dist(scale.env.means2, method = "euclidean")
-dist.env.means3 <- dist(scale.env.means3, method = "euclidean")
-
-#damming metrics by campaign
-#make a vector for damming metrics
-dam.metrics1 <-  dat_means %>%
-  filter(season == "Spring") %>%
-  select(percent_open_downstream, percent_open_downstream, dist_ds_dam_km)
-
-dam.metrics2 <-  dat_means %>%
-  filter(season == "Summer") %>%
-  select(percent_open_downstream, percent_open_downstream, dist_ds_dam_km)
-
-dam.metrics3 <-  dat_means %>%
-  filter(season == "Fall") %>%
-  select(percent_open_downstream, percent_open_downstream, dist_ds_dam_km)
-
-#scale
-scale.dam.metrics1 <- scale(dam.metrics1, center = TRUE, scale = TRUE)
-scale.dam.metrics2 <- scale(dam.metrics2, center = TRUE, scale = TRUE)
-scale.dam.metrics3 <- scale(dam.metrics3, center = TRUE, scale = TRUE)
-
-dist.dam.metrics1 <- dist(scale.dam.metrics1, method = "euclidean")
-dist.dam.metrics2 <- dist(scale.dam.metrics2, method = "euclidean")
-dist.dam.metrics3 <- dist(scale.dam.metrics3, method = "euclidean")
-
-#Make a custom network distance matrix for each campaign depending on number of observations
-
-#Spring, remove TA02R
-net_dist1 <- subset(net_dist, select = -c(TA02R) )  #remove the site TA02R column
-net_dist1 <-  net_dist1[-3,]   #and row
-
-#Summer, remove TA12 and TA02R
-net_dist2 <- subset(net_dist, select = -c(TA02R) )  #remove the site TA02R column
-net_dist2 <-  net_dist2[-3,]   #and row
-net_dist2 <- subset(net_dist2, select = -c(TA12) )   #remove site TA12 column
-net_dist2 <-  net_dist2[-12,]  #... and row
-
-#Fall, remove TA12 and TA02
-net_dist3 <- subset(net_dist, select = -c(TA02) )  #remove the site TA02 column
-net_dist3 <-  net_dist3[-2,]  
-net_dist3 <- subset(net_dist3, select = -c(TA12) )  
-net_dist3 <-  net_dist3[-12,] 
-
-#Geographic distance
-geo_means1 <- dat_means %>%
-  filter(site != "TA02R" & season=="Spring") %>%
-  select(lon, lat)
-
-geo_means2 <- dat_means %>%
-  filter(site != "TA12" & site != "TA02R" & season=="Summer") %>%
-  select(lon, lat)
-
-geo_means3 <- dat_means %>%
-  filter(site != "TA12" & site != "TA02" & season=="Fall") %>%
-  select(lon, lat)
-
-#make matrix of geographic distances
-d.geo.means1 = distm(geo_means1, fun = distHaversine)
-dist.geo1 = as.dist(d.geo.means1)
-
-d.geo.means2 = distm(geo_means2, fun = distHaversine)
-dist.geo2 = as.dist(d.geo.means2)
-
-d.geo.means3 = distm(geo_means3, fun = distHaversine)
-dist.geo3 = as.dist(d.geo.means3)
-
-
-## Run mantel tests
-
-#effect of network distances
-
-env_C1 <-  mantel(dist.env.means1, net_dist1, method = "spearman", permutations = 999)
-env_C1 #not significant
-
-env_C2 <-  mantel(dist.env.means2, net_dist2, method = "spearman", permutations = 999)
-env_C2 #significant at 0.03
-
-env_C3 <-  mantel(dist.env.means3, net_dist3, method = "spearman", permutations = 999)
-env_C3 #not significant
-
-# So we only need a partial Mantel test for C2...
-
-geo_C1 <-  mantel(dist.geo1, net_dist1, method = "spearman", permutations = 999)
-geo_C1 # p 0.001
-
-geo_C2 <-  mantel(dist.geo2, net_dist2, method = "spearman", permutations = 999)
-geo_C2 # p 0.001
-
-geo_C3 <-  mantel(dist.geo3, net_dist3, method = "spearman", permutations = 999)
-geo_C3 # p 0.001
-
-#effect of dams on env vars
-
-damsC1 <- mantel(dist.env.means1, dist.dam.metrics1, method = "spearman", permutations = 999)
-damsC1
-
-damsC2 <- mantel(dist.env.means2, dist.dam.metrics2, method = "spearman", permutations = 999)
-damsC2
-
-damsC3 <- mantel(dist.env.means3, dist.dam.metrics3, method = "spearman", permutations = 999)
-damsC3
-
-#effect of env vars on response vars
-
-CO2_C1 <- mantel(dist.CO2flux_1, dist.env.means1, method = "spearman", permutations = 999)
-CO2_C1 #not sig
-
-CO2_C2 <- mantel(dist.CO2flux_2, dist.env.means2, method = "spearman", permutations = 999)
-CO2_C2 #not sig
-
-CO2_C3 <- mantel(dist.CO2flux_3, dist.env.means3, method = "spearman", permutations = 999)
-CO2_C3  #sig
-
-#effect of network distance on CO2
-
-CO2net_C1 <- mantel(dist.CO2flux_1, net_dist1, method = "spearman", permutations = 999)
-CO2net_C1 # not sig
-
-CO2net_C2 <- mantel(dist.CO2flux_2, net_dist2, method = "spearman", permutations = 999)
-CO2net_C2 # not sig
-
-CO2net_C3 <- mantel(dist.CO2flux_3, net_dist3, method = "spearman", permutations = 999)
-CO2net_C3 # not sig
-
-#Effect of damming on CO2
-
-CO2dam_C1 <- mantel(dist.CO2flux_1, dist.dam.metrics1, method = "spearman", permutations = 999)
-CO2dam_C1 # not sig
-
-CO2dam_C2 <- mantel(dist.CO2flux_2, dist.dam.metrics2, method = "spearman", permutations = 999)
-CO2dam_C2 # not sig
-
-CO2dam_C3 <- mantel(dist.CO2flux_3, dist.dam.metrics3, method = "spearman", permutations = 999)
-CO2dam_C3 # not sig
-
-## partial Mantel tests
-
-CO2_partial1 <- mantel.partial(dist.CO2flux_1, dist.env.means1, net_dist1, method="pearson", permutations=999)
-CO2_partial1 
-
-CO2_partial2 <- mantel.partial(dist.CO2flux_2, dist.env.means2, net_dist2, method="pearson", permutations=999)
-CO2_partial2 
-
-CO2_partial3 <- mantel.partial(dist.CO2flux_3, dist.env.means3, net_dist3, method="pearson", permutations=999)
-CO2_partial3 
-#
-#
-CO2_part1 <- mantel.partial(dist.CO2flux_1,  net_dist1, dist.env.means1, method="pearson", permutations=999)
-CO2_part1 
-
-CO2_part2 <- mantel.partial(dist.CO2flux_2,  net_dist2, dist.env.means2,  method="pearson", permutations=999)
-CO2_part2 
-
-CO2_part3 <- mantel.partial(dist.CO2flux_3,  net_dist3, dist.env.means3, method="pearson", permutations=999)
-CO2_part3 
-#
-#
-CO2_par1 <- mantel.partial(dist.CO2flux_1, dist.dam.metrics1, net_dist1, method="pearson", permutations=999)
-CO2_par1 
-
-CO2_par2 <- mantel.partial(dist.CO2flux_2, dist.dam.metrics2,  net_dist2,  method="pearson", permutations=999)
-CO2_par2 
-
-CO2_par3 <- mantel.partial(dist.CO2flux_3, dist.dam.metrics3,  net_dist3,  method="pearson", permutations=999)
-CO2_par3 
-
-############################################################################
-## CH4
-
-#effect of env vars on response vars
-
-CH4_C1 <- mantel(dist.CH4flux_1, dist.env.means1, method = "spearman", permutations = 999)
-CH4_C1 #
-
-CH4_C2 <- mantel(dist.CH4flux_2, dist.env.means2, method = "spearman", permutations = 999)
-CH4_C2 #
-
-CH4_C3 <- mantel(dist.CH4flux_3, dist.env.means3, method = "spearman", permutations = 999)
-CH4_C3  #
-
-#effect of network distance on CH4
-
-CH4net_C1 <- mantel(dist.CH4flux_1, net_dist1, method = "spearman", permutations = 999)
-CH4net_C1 # 
-
-CH4net_C2 <- mantel(dist.CH4flux_2, net_dist2, method = "spearman", permutations = 999)
-CH4net_C2 # 
-
-CH4net_C3 <- mantel(dist.CH4flux_3, net_dist3, method = "spearman", permutations = 999)
-CH4net_C3 # 
-
-#Effect of damming on CH4
-
-CH4dam_C1 <- mantel(dist.CH4flux_1, dist.dam.metrics1, method = "spearman", permutations = 999)
-CH4dam_C1 # 
-
-CH4dam_C2 <- mantel(dist.CH4flux_2, dist.dam.metrics2, method = "spearman", permutations = 999)
-CH4dam_C2 # 
-
-CH4dam_C3 <- mantel(dist.CH4flux_3, dist.dam.metrics3, method = "spearman", permutations = 999)
-CH4dam_C3 # 
-
-## partial Mantel tests
-
-CH4_partial1 <- mantel.partial(dist.CH4flux_1, dist.env.means1, net_dist1, method="pearson", permutations=999)
-CH4_partial1 
-
-CH4_partial2 <- mantel.partial(dist.CH4flux_2, dist.env.means2, net_dist2, method="pearson", permutations=999)
-CH4_partial2 
-
-CH4_partial3 <- mantel.partial(dist.CH4flux_3, dist.env.means3, net_dist3, method="pearson", permutations=999)
-CH4_partial3 
-#
-#
-CH4_part1 <- mantel.partial(dist.CH4flux_1,  net_dist1, dist.env.means1, method="pearson", permutations=999)
-CH4_part1 
-
-CH4_part2 <- mantel.partial(dist.CH4flux_2,  net_dist2, dist.env.means2,  method="pearson", permutations=999)
-CH4_part2 
-
-CH4_part3 <- mantel.partial(dist.CH4flux_3,  net_dist3, dist.env.means3, method="pearson", permutations=999)
-CH4_part3 
-#
-#
-CH4_par1 <- mantel.partial(dist.CH4flux_1, dist.dam.metrics1, net_dist1, method="pearson", permutations=999)
-CH4_par1 
-
-CH4_par2 <- mantel.partial(dist.CH4flux_2, dist.dam.metrics2,  net_dist2,  method="pearson", permutations=999)
-CH4_par2 
-
-CH4_par3 <- mantel.partial(dist.CH4flux_3, dist.dam.metrics3,  net_dist3,  method="pearson", permutations=999)
-CH4_par3 
-#
-#
-
-####################################################
-#OM
-
-#effect of env vars on response vars
-
-OM_C1 <- mantel(dist.stock_OM_1, dist.env.means1, method = "spearman", permutations = 999)
-OM_C1 #
-
-OM_C2 <- mantel(dist.stock_OM_2, dist.env.means2, method = "spearman", permutations = 999)
-OM_C2 #
-
-OM_C3 <- mantel(dist.stock_OM_3, dist.env.means3, method = "spearman", permutations = 999)
-OM_C3  #
-
-#effect of network distance on OM
-
-OMnet_C1 <- mantel(dist.stock_OM_1, net_dist1, method = "spearman", permutations = 999)
-OMnet_C1 # 
-
-OMnet_C2 <- mantel(dist.stock_OM_2, net_dist2, method = "spearman", permutations = 999)
-OMnet_C2 # 
-
-OMnet_C3 <- mantel(dist.stock_OM_3, net_dist3, method = "spearman", permutations = 999)
-OMnet_C3 # 
-
-#Effect of damming on OM
-
-OMdam_C1 <- mantel(dist.stock_OM_1, dist.dam.metrics1, method = "spearman", permutations = 999)
-OMdam_C1 # 
-
-OMdam_C2 <- mantel(dist.stock_OM_2, dist.dam.metrics2, method = "spearman", permutations = 999)
-OMdam_C2 # 
-
-OMdam_C3 <- mantel(dist.stock_OM_3, dist.dam.metrics3, method = "spearman", permutations = 999)
-OMdam_C3 # 
-
-## partial Mantel tests
-
-OM_partial1 <- mantel.partial(dist.stock_OM_1, dist.env.means1, net_dist1, method="pearson", permutations=999)
-OM_partial1 
-
-OM_partial2 <- mantel.partial(dist.stock_OM_2, dist.env.means2, net_dist2, method="pearson", permutations=999)
-OM_partial2 
-
-OM_partial3 <- mantel.partial(dist.stock_OM_3, dist.env.means3, net_dist3, method="pearson", permutations=999)
-OM_partial3 
-#
-#
-OM_part1 <- mantel.partial(dist.stock_OM_1,  net_dist1, dist.env.means1, method="pearson", permutations=999)
-OM_part1 
-
-OM_part2 <- mantel.partial(dist.stock_OM_2,  net_dist2, dist.env.means2,  method="pearson", permutations=999)
-OM_part2 
-
-OM_part3 <- mantel.partial(dist.stock_OM_3,  net_dist3, dist.env.means3, method="pearson", permutations=999)
-OM_part3 
-#
-#
-OM_par1 <- mantel.partial(dist.stock_OM_1, dist.dam.metrics1, net_dist1, method="pearson", permutations=999)
-OM_par1 
-
-OM_par2 <- mantel.partial(dist.stock_OM_2, dist.dam.metrics2,  net_dist2,  method="pearson", permutations=999)
-OM_par2 
-
-OM_par3 <- mantel.partial(dist.stock_OM_3, dist.dam.metrics3,  net_dist3,  method="pearson", permutations=999)
-OM_par3 
-
-###############################################################
-
-#k coarse
-
-#effect of env vars on response vars
-
-kcoarse_C1 <- mantel(dist.k_coarse_1, dist.env.means1, method = "spearman", permutations = 999)
-kcoarse_C1 #
-
-kcoarse_C2 <- mantel(dist.k_coarse_2, dist.env.means2, method = "spearman", permutations = 999)
-kcoarse_C2 #
-
-kcoarse_C3 <- mantel(dist.k_coarse_3, dist.env.means3, method = "spearman", permutations = 999)
-kcoarse_C3  #
-
-#effect of network distance on OM
-
-kcoarsenet_C1 <- mantel(dist.k_coarse_1, net_dist1, method = "spearman", permutations = 999)
-kcoarsenet_C1 # 
-
-kcoarsenet_C2 <- mantel(dist.k_coarse_2, net_dist2, method = "spearman", permutations = 999)
-kcoarsenet_C2 # 
-
-kcoarsenet_C3 <- mantel(dist.k_coarse_3, net_dist3, method = "spearman", permutations = 999)
-kcoarsenet_C3 # 
-
-#Effect of damming on OM
-
-kcoarsedam_C1 <- mantel(dist.k_coarse_1, dist.dam.metrics1, method = "spearman", permutations = 999)
-kcoarsedam_C1 # 
-
-kcoarsedam_C2 <- mantel(dist.k_coarse_2, dist.dam.metrics2, method = "spearman", permutations = 999)
-OMdam_C2 # 
-
-kcoarsedam_C3 <- mantel(dist.k_coarse_3, dist.dam.metrics3, method = "spearman", permutations = 999)
-kcoarsedam_C3 # 
-
-## partial Mantel tests
-
-kcoarse_partial1 <- mantel.partial(dist.k_coarse_1, dist.env.means1, net_dist1, method="pearson", permutations=999)
-kcoarse_partial1 
-
-kcoarse_partial2 <- mantel.partial(dist.k_coarse_2, dist.env.means2, net_dist2, method="pearson", permutations=999)
-kcoarse_partial2 
-
-kcoarse_partial3 <- mantel.partial(dist.k_coarse_3, dist.env.means3, net_dist3, method="pearson", permutations=999)
-kcoarse_partial3 
-#
-#
-kcoarse_part1 <- mantel.partial(dist.k_coarse_1,  net_dist1, dist.env.means1, method="pearson", permutations=999)
-kcoarse_part1 
-
-kcoarse_part2 <- mantel.partial(dist.k_coarse_2,  net_dist2, dist.env.means2,  method="pearson", permutations=999)
-kcoarse_part2 
-
-kcoarse_part3 <- mantel.partial(dist.k_coarse_3,  net_dist3, dist.env.means3, method="pearson", permutations=999)
-kcoarse_part3 
-#
-#
-kcoarse_par1 <- mantel.partial(dist.k_coarse_1, dist.dam.metrics1, net_dist1, method="pearson", permutations=999)
-kcoarse_par1 
-
-kcoarse_par2 <- mantel.partial(dist.k_coarse_2, dist.dam.metrics2,  net_dist2,  method="pearson", permutations=999)
-kcoarse_par2 
-
-kcoarse_par3 <- mantel.partial(dist.k_coarse_3, dist.dam.metrics3,  net_dist3,  method="pearson", permutations=999)
-kcoarse_par3 
-
-############################################################
-##kfine
-
-#effect of env vars on response vars
-
-kfine_C1 <- mantel(dist.k_fine_1, dist.env.means1, method = "spearman", permutations = 999)
-kfine_C1 #
-
-kfine_C2 <- mantel(dist.k_fine_2, dist.env.means2, method = "spearman", permutations = 999)
-kfine_C2 #
-
-kfine_C3 <- mantel(dist.k_fine_3, dist.env.means3, method = "spearman", permutations = 999)
-kfine_C3  #
-
-#effect of network distance on OM
-
-kfinenet_C1 <- mantel(dist.k_fine_1, net_dist1, method = "spearman", permutations = 999)
-kfinenet_C1 # 
-
-kfinenet_C2 <- mantel(dist.k_fine_2, net_dist2, method = "spearman", permutations = 999)
-kfinenet_C2 # 
-
-kfinenet_C3 <- mantel(dist.k_fine_3, net_dist3, method = "spearman", permutations = 999)
-kfinenet_C3 # 
-
-#Effect of damming on OM
-
-kfinedam_C1 <- mantel(dist.k_fine_1, dist.dam.metrics1, method = "spearman", permutations = 999)
-kfinedam_C1 # 
-
-kfinedam_C2 <- mantel(dist.k_fine_2, dist.dam.metrics2, method = "spearman", permutations = 999)
-OMdam_C2 # 
-
-kfinedam_C3 <- mantel(dist.k_fine_3, dist.dam.metrics3, method = "spearman", permutations = 999)
-kfinedam_C3 # 
-
-## partial Mantel tests
-
-kfine_partial1 <- mantel.partial(dist.k_fine_1, dist.env.means1, net_dist1, method="pearson", permutations=999)
-kfine_partial1 
-
-kfine_partial2 <- mantel.partial(dist.k_fine_2, dist.env.means2, net_dist2, method="pearson", permutations=999)
-kfine_partial2 
-
-kfine_partial3 <- mantel.partial(dist.k_fine_3, dist.env.means3, net_dist3, method="pearson", permutations=999)
-kfine_partial3 
-#
-#
-kfine_part1 <- mantel.partial(dist.k_fine_1,  net_dist1, dist.env.means1, method="pearson", permutations=999)
-kfine_part1 
-
-kfine_part2 <- mantel.partial(dist.k_fine_2,  net_dist2, dist.env.means2,  method="pearson", permutations=999)
-kfine_part2 
-
-kfine_part3 <- mantel.partial(dist.k_fine_3,  net_dist3, dist.env.means3, method="pearson", permutations=999)
-kfine_part3 
-#
-#
-kfine_par1 <- mantel.partial(dist.k_fine_1, dist.dam.metrics1, net_dist1, method="pearson", permutations=999)
-kfine_par1 
-
-kfine_par2 <- mantel.partial(dist.k_fine_2, dist.dam.metrics2,  net_dist2,  method="pearson", permutations=999)
-kfine_par2 
-
-kfine_par3 <- mantel.partial(dist.k_fine_3, dist.dam.metrics3,  net_dist3,  method="pearson", permutations=999)
-kfine_par3 
-
+##############################################################################
 #### Run PLS ####
 
 #Fit PCR model
