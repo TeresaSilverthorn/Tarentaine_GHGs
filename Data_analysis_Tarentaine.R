@@ -1028,8 +1028,8 @@ dev.off()
 
 
 #kfine all seasons
-k_fine_all <- ggplot(dat_means, aes(Distance_to_source_km, k_dday_fine) ) +
-  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) microbes") 
+k_fine_all <- ggplot(dat_means, aes(dist_to_source_km, k_dday_fine) ) +
+  geom_point(aes(colour=position_d, shape=season), size=4, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) microbes") 
 k_fine_all
 
 k_fine_all <- ggplot(dat_means, aes(dist_ds_dam_km, k_dday_fine) ) +
@@ -1065,9 +1065,9 @@ k_coarse
 dev.off()
 
 #all seasons
-k_coarse_all <- ggplot(dat_means, aes(Distance_to_source_km, k_dday_coarse) ) +
+k_coarse_all <- ggplot(dat_means, aes(dist_to_source_km, k_dday_coarse) ) +
   geom_smooth(data = dat_means, method = "lm",  se = FALSE,colour = "grey", linewidth = 1, linetype="dashed") +
-  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(a) invertebrates + microbes")  
+  geom_point(aes(colour=position_d, shape=season), size=4, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(a) invertebrates + microbes")  
 k_coarse_all
 
 k_coarse_all <- ggplot(dat_means, aes(dist_ds_dam_km, k_dday_coarse) ) +
@@ -1958,11 +1958,24 @@ summary(CO2_open2)
 #### Run LMMs by season ####
 
 # all seasons:
+min(dat$CO2_C_mg_m2_h) #-34.92515
+34.92515+1   #add this when there are negatvie values
+
 CO2_all_lmm <- lmer(log(CO2_C_mg_m2_h) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Fall"))
 summary(CO2_all_lmm)
 r.squaredGLMM(CO2_all_lmm) 
 
-CO2_pos_lmm <- lmer(log(CO2_C_mg_m2_h) ~ dist_to_dam_km + (1 | site), data=subset(dat, season=="Fall"))
+CO2_pos_lmm <- lmer(log(CO2_C_mg_m2_h+35.92515) ~ dist_ds_dam_km + (1 | site), data=dat)
+summary(CO2_pos_lmm) #p=0.052
+
+CO2_pos_lmm <- lmer(log(CO2_C_mg_m2_h+35.92515) ~ dist_ds_dam_km + (1 | site), data=subset(dat, season=="Fall"))
+summary(CO2_pos_lmm) #not sig
+
+CO2_pos_lmm <- lmer(log(CO2_C_mg_m2_h+35.92515) ~ dist_ds_weir_km + (1 | site),  data=dat)
+summary(CO2_pos_lmm) #not sig
+
+CO2_pos_lmm <- lmer(log(CO2_C_mg_m2_h+35.92515) ~ dist_ds_weir_km + (1 | site),  data=subset(dat, season=="Fall"))
+summary(CO2_pos_lmm) #not sig
 
 CO2_pos_lmm <- lmer(log(CO2_C_mg_m2_h) ~ position_d + (1 +season | site), data=dat)
 summary(CO2_pos_lmm)
@@ -2229,9 +2242,50 @@ summary(CH4_env2)
 #### Run LMMs by season ####
 
 
-CH4_pos_lmm <- lm(CH4_C_mg_m2_h ~ dist_to_dam_km, data=dat)
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Spring"))
 summary(CH4_pos_lmm)
-plot(CH4_pos_lmm)
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Spring" & position_d=="upstream"))
+summary(CH4_pos_lmm)
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Spring" & position_d=="downstream"))
+summary(CH4_pos_lmm)
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Summer"))
+summary(CH4_pos_lmm)
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Summer" & position_d=="upstream"))
+summary(CH4_pos_lmm)
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Summer" & position_d=="downstream"))
+summary(CH4_pos_lmm)
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Fall"))
+summary(CH4_pos_lmm)
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Fall" & position_d=="upstream"))
+summary(CH4_pos_lmm)
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Fall" & position_d=="downstream"))
+summary(CH4_pos_lmm)
+
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_ds_dam_km + (1 | site), data=dat)
+summary(CH4_pos_lmm)
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_dam_km + (1 | site), data=subset(dat, season=="Summer"))
+summary(CH4_pos_lmm) #Summer 0.02
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_ds_weir_km + (1 | site), data=dat)
+summary(CH4_pos_lmm)
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_ds_weir_km + (1 | site),  data=subset(dat, season=="Fall"))
+summary(CH4_pos_lmm) #not sig for any season
+
+
+
+CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_ds_dam_km + (1 | site), data=dat)
+summary(CH4_pos_lmm)
 
 
 CH4_pos_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ dist_to_dam_km + (1 | site), data=subset(dat, season=="Summer"))
@@ -2257,63 +2311,36 @@ emmeans(CH4_season_lmm, pairwise ~ season)
 ################################################################################
 
 #### Run LMM for CO2 equivalents ############
+min(dat$CO2e)  #31.12941
+31.12941+1     #32.12941
 
-min(dat$CO2e[dat$season == "Fall"]) #Spring -13.25686, Summer -31.12941
-min(dat$CO2e[dat$CO2e >= 0]) #0.1447593 
-0.1447593+31.12941 #31.27417
-
-dat_CO2e_Fall <- subset(dat, season=="Fall") #remove 1 outlier in Fall
-dat_CO2e_Fall_out <- subset(dat_CO2e_Fall, CO2e<=1000)
-
-CO2e_source_lmm <- lmer(log(CO2e) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Fall"))
-summary(CO2e_source_lmm) #no sig relationship, p = 0.09 in the fall...
-plot(CO2e_source_lmm)
-
-CO2e_source_lmm_all <- lmer(log(CO2e) ~ dist_to_source_km + (1 +season | site), data=dat)
-summary(CO2e_source_lmm_all) #not sig
-plot(CO2e_source_lmm_all)
-
-CO2e_source_lmm_season <- lmer(log(CO2e) ~ season + (1 +season | site), data=dat)
-summary(CO2e_source_lmm_season) 
-plot(CO2e_source_lmm_season)
-emmeans(CO2e_source_lmm_season, pairwise ~ season) #no effect of season
-
-CO2e_dam_lmm <- lmer(log(CO2e+32.12941) ~ dist_to_dam_km + (1 | site), data=subset(dat_CO2e_Summer_out, season=="Summer"))
+CO2e_dam_lmm <- lmer(log(CO2e+32.12941) ~ dist_to_source_km + (1 | site), data=dat)
 summary(CO2e_dam_lmm) #no sig relationships
 plot(CO2e_dam_lmm)
 
-CO2e_pos_lmm <- lmer(log(CO2e) ~ position_d + (1 | site), data=subset(dat, season=="Fall")) #dat_CO2e_Summer_out
-summary(CO2e_pos_lmm) #in the fall, reservoir sig lower than upstream
-plot(CO2e_pos_lmm)
-emmeans(CO2e_pos_lmm, pairwise ~ position_d) 
+CO2e_dam_lmm <- lmer(log(CO2e+32.12941) ~ dist_to_source_km + (1 | site), data=subset(dat, season=="Fall"))
+summary(CO2e_dam_lmm)
 
-#1 outlier in summer - check  with Cook's Distance
-dat_CO2e_Summer <- subset(dat, season=="Summer")
-cooksD <- cooks.distance(CO2e_pos_lmm) #run the model with dat_sub first
-influential <- cooksD[(cooksD > (8* mean(cooksD, na.rm = TRUE)))]
-influential #15
+CO2e_dam_lmm <- lmer(log(CO2e+32.12941) ~ dist_ds_weir_km + (1 | site), data=dat)
+summary(CO2e_dam_lmm) #no sig relationships
+plot(CO2e_dam_lmm)
 
-n <- nrow(dat_CO2e_Summer)
-plot(cooksD, main = "Cooks Distance for Influential Obs")
-abline(h = 15/n, lty = 2, col = "steelblue") # add cutoff line
+CO2e_dam_lmm <- lmer(log(CO2e+32.12941) ~ dist_ds_weir_km + (1 | site), data=subset(dat, season=="Fall"))
+summary(CO2e_dam_lmm) #no sig relationships for any season
 
-names_of_influential <- names(influential)
-outliers <- dat_CO2e_Summer[names_of_influential,]
-dat_CO2e_Summer_out <- dat_CO2e_Summer %>% anti_join(outliers)
+CO2e_dam_lmm <- lmer(log(CO2e+32.12941) ~ dist_ds_dam_km + (1 | site), data=dat)
+summary(CO2e_dam_lmm) #no sig relationships
+plot(CO2e_dam_lmm)
+
+CO2e_dam_lmm <- lmer(log(CO2e+32.12941) ~ dist_ds_dam_km + (1 | site), data=subset(dat, season=="Summer"))
+summary(CO2e_dam_lmm) #no sig relationships for any season
 
 
-
-
-
-
-emmeans(CH4_pos_lmm, pairwise ~ position_d) #post hoc test
-
-CH4_season_lmm <- lmer(CH4_C_mg_m2_h^(1/3) ~ season + (1 +season | site), data=dat)
+CH4_season_lmm <- lmer(log(CO2e+32.12941) ~ season + (1 | site), data=dat)
 summary(CH4_season_lmm)
 plot(CH4_season_lmm)
 
-
-
+emmeans(CH4_season_lmm, pairwise ~ season) 
 
 ####################################################################################
 
@@ -2590,26 +2617,54 @@ summary(OMstock_open)
 plot(OMstock_open)
 
 
-#Try GAMM model 
 
-gamm_stock_all <- gam(log(OM_stock_g_m2) ~ s(dist_to_source_km, by=season) + s(site, bs = "re"), data = dat_lm_OMstock_all_scaled, method = "REML") 
-summary(gamm_stock_all)
-plot(gamm_stock_all)
-plot(ggeffects::ggpredict(gamm_stock_all), facets = TRUE)
+#### Run LMs by season for OM stock ####
 
+OMstock_spring_lm <- lm(log(OM_stock_g_m2) ~ dist_to_source_km, data=subset(dat_means, season=="Spring" & position_d=="upstream"))
+summary(OMstock_spring_lm) # p = 0.01
+plot(kcoarse_spring_lm)
 
-gam_stock <- gam(log(OM_stock_g_m2) ~ s(dist_to_source_km, bs = "cr"), data = dat_lm_OMstock_all_scaled)
-summary(gam_stock)
-plot(gam_stock)
+OMstock_spring_lm <- lm(log(OM_stock_g_m2) ~ dist_to_source_km, data=subset(dat_means, season=="Spring" & position_d=="downstream"))
+summary(OMstock_spring_lm) #not sig
+plot(kcoarse_spring_lm)
 
-#Spatial GAM
-spatial_gam <- gam(OM_stock_g_m2 ~ s(lon, lat, bs = 'gp', k = 100, m = 2), data = dat_lm_OMstock_all_scaled)
-summary(spatial_gam)
+OMstock_summer_lm <- lm(log(OM_stock_g_m2) ~ dist_to_source_km, data=subset(dat_means, season=="Summer" & position_d=="upstream"))
+summary(OMstock_summer_lm) # not sig
+plot(OMstock_summer_lm)
 
+OMstock_summer_lm <- lm(log(OM_stock_g_m2) ~ dist_to_source_km, data=subset(dat_means, season=="Summer" & position_d=="downstream"))
+summary(OMstock_summer_lm) # not sig
+plot(OMstock_summer_lm)
 
-#### Run LMs by season ####
+OMstock_fall_lm <- lm(log(OM_stock_g_m2) ~ dist_to_source_km, data=subset(dat_means, season=="Fall" & position_d=="upstream"))
+summary(OMstock_fall_lm) # not sig
+plot(OMstock_fall_lm)
 
-OMflux_lm <- lm(log(OM_stock_g_m2) ~ dist_to_source_km, data=subset(dat_means, season=="Spring" & position_d=="upstream"))
+OMstock_fall_lm <- lm(log(OM_stock_g_m2) ~ dist_to_source_km, data=subset(dat_means, season=="Fall" & position_d=="downstream"))
+summary(OMstock_fall_lm) # not sig
+plot(OMstock_fall_lm)
+
+#all data
+
+OMstock_lm <- lm(log(OM_stock_g_m2) ~ dist_to_source_km, data=dat_means)
+summary(OMstock_lm) # not sig
+
+OMstock_lm <- lm(log(OM_stock_g_m2) ~ dist_ds_dam_km, data=dat_means)
+summary(OMstock_lm) # not sig
+
+OMstock_lm <- lm(log(OM_stock_g_m2) ~ dist_ds_weir_km, data=dat_means)
+summary(OMstock_lm) # not sig
+
+OMstock_lm <- lm(log(OM_stock_g_m2) ~ dist_ds_weir_km, data=subset(dat_means, season=="Fall"))
+summary(OMstock_lm) # not sig for any season
+
+OMstock_lm <- lm(log(OM_stock_g_m2) ~ dist_ds_dam_km, data=subset(dat_means, season=="Fall"))
+summary(OMstock_lm) # not sig for any season
+
+###################
+#### Run LMs by season for OM flux 
+
+OMflux_lm <- lm(log(OM_g_m3) ~ dist_to_source_km, data=subset(dat_means, season=="Spring" & position_d=="upstream"))
 summary(OMflux_lm)
 plot(OMflux_lm)
 
@@ -2624,6 +2679,18 @@ plot(OMflux_lm)
 OMflux_pos_lm <- lm(log(OM_g_m3) ~ position_d, data=subset(dat_means, season=="Fall"))
 summary(OMflux_pos_lm)
 plot(OMflux_pos_lm)
+
+OMflux <- lm(log(OM_g_m3) ~ dist_ds_dam_km, data=dat_means)
+summary(OMflux) #not sig
+
+OMflux <- lm(log(OM_g_m3) ~ dist_ds_dam_km, data=subset(dat_means, season=="Fall"))
+summary(OMflux) #not sig for any season
+
+OMflux <- lm(log(OM_g_m3) ~ dist_ds_weir_km, data=dat_means)
+summary(OMflux) #not sig
+
+OMflux <- lm(log(OM_g_m3) ~ dist_ds_weir_km, data=subset(dat_means, season=="Fall"))
+summary(OMflux) #not sig for spring, summer or fall
 
 emmeans(OMflux_pos_lm, pairwise ~ position_d) #post hoc test
 
@@ -3077,10 +3144,18 @@ kcoarse_fall_lm <- lm(log(k_dday_coarse) ~ Distance_to_source_km, data=subset(da
 summary(kcoarse_fall_lm) #not sig, but close p = 0.0511
 plot(kcoarse_fall_lm)
 
-#entire netoworkdistance to dam
+#entire netowork distance to dam
 
 kcoarse_lm <- lm(log(k_dday_coarse) ~ dist_ds_dam_km, data=subset(dat_means))
 summary(kcoarse_lm) #p 0.0144
+plot(kcoarse_lm)
+
+kcoarse_lm <- lm(log(k_dday_coarse) ~ dist_ds_weir_km, data=dat_means) 
+summary(kcoarse_lm) #p 0.03
+plot(kcoarse_lm)
+
+kcoarse_lm <- lm(log(k_dday_coarse) ~ dist_ds_weir_km, data=subset(dat_means, season=="Fall"))
+summary(kcoarse_lm) #p 0.01 #not sig for Spring nor Summer
 plot(kcoarse_lm)
 
 kcoarse_spring_lm <- lm(log(k_dday_coarse) ~ dist_ds_dam_km, data=subset(dat_means, season=="Spring"))
@@ -3142,6 +3217,10 @@ plot(kfine_fall_lm)
 
 #entire network
 kfine_lm <- lm(log(k_dday_fine) ~ dist_ds_dam_km, data=subset(dat_means))
+summary(kfine_lm) #not sig
+plot(kfine_lm)
+
+kfine_lm <- lm(log(k_dday_fine) ~ dist_ds_weir_km, data=subset(dat_means))
 summary(kfine_lm) #not sig
 plot(kfine_lm)
 
@@ -3577,15 +3656,16 @@ semPaths(fitmCO2, intercept = FALSE,
 semPaths(fitmCO2, "std", edge.label.cex = 1.0, curvePivot = TRUE) #nice layout
 
 ##############################################################################
-#### Run PL
+#### Run PLS
 #Fit PCR model
 
 #no need to centre the variables as this is intrinsic to the pls algorithm 
 
 #subset by season
-pls_OMstock_spring <- plsr(log(CO2_C_mg_m2_h+35.92515)~water_pH + water_conductivity_us_cm + DO_mg_L + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + DailyMeanWaterTemp_C + temp_C + substrate_complexity + fine_substrate + mean_depth_cm + percent_open_upstream + percent_open_downstream + masl + dist_to_source_km + dist_to_dam_km + dist_ds_weir_km + percent_open_upstream_weir + No_weirs_dams_up + OM_stock_g_m2, data=dat, scale=TRUE, validation="LOO", method = "oscorespls") #or can use LOOCV
+#pls_OMstock_spring <- plsr(log(CO2_C_mg_m2_h+35.92515)~water_pH + water_conductivity_us_cm + DO_mg_L + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + DailyMeanWaterTemp_C + temp_C + substrate_complexity + fine_substrate + mean_depth_cm + percent_open_upstream + percent_open_downstream + masl + dist_to_source_km + dist_to_dam_km + dist_ds_weir_km + percent_open_upstream_weir + No_weirs_dams_up + OM_stock_g_m2, data=dat, scale=TRUE, validation="LOO", method = "oscorespls") #or can use LOOCV
 
-pls_OMstock <- plsr(log(k_day_fine)~ water_pH + water_conductivity_us_cm + DO_mg_L + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + DailyMeanWaterTemp_C + temp_C + substrate_complexity + fine_substrate + mean_depth_cm +  masl + dist_to_source_km + OM_stock_g_m2, data=dat, scale=TRUE, validation="LOO", method = "oscorespls") 
+
+pls_OMstock <- plsr(log(k_day_fine)~ water_pH + water_conductivity_us_cm + DO_mg_L + DO_. + canopy_cover_. + wetted_width_m + discharge_m3_s + mean_velocity_m_s + DailyMeanWaterTemp_C + temp_C + substrate_complexity + fine_substrate + mean_depth_cm +  masl + dist_to_source_km + dist_ds_dam_km + dist_ds_weir_km + OM_stock_g_m2, data=dat, scale=TRUE, validation="LOO", method = "oscorespls") 
 summary(pls_OMstock)
 plot(pls_OMstock)
 coef(pls_OMstock) ## Get the PLS coefficients
@@ -3642,6 +3722,8 @@ variables <- rownames(pls_coef) # Get variable names
 pls_coef_df <- data.frame(Coefficients = coefficients, Components=variables)
 
 VIP1 <- merge(VIP_OMstock_spring_df, pls_coef_df, by="Components")
+
+VIP1 <- VIP1[order(-VIP1$Mean_VIP), ] # Order by VIP column from highest to lowest
 
 #write.csv(VIP1, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/VIP_kcoarse_fall.csv")
 
