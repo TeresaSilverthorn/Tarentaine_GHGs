@@ -182,7 +182,7 @@ coords <- coords %>%
 
 #### 8. Add network distances #####
 
-dist <- read.csv("C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/Network distances/Tarentaine_distance_to_source.csv")
+dist <- read.csv("C:/Users/teres/Documents/Tarentaine 2022/Fieldwork_2022/Data/Network distances/Tarentaine_distance_to_source.csv")
 
 str(dist)
 
@@ -432,9 +432,9 @@ dat <- dat %>%
 
 #### Save as .csv ####
 
-str(dat) #327 × 54 variables
+str(dat) #327 × 59 variables
 
-write.csv(dat, "C:/Users/teresa.silverthorn/Dropbox/My PC (lyp5183)/Documents/Fieldwork_2022/Data/dat.csv")
+write.csv(dat, "C:/Users/teres/Documents/Tarentaine 2022/Fieldwork_2022/Tarentaine_GHGs/dat.csv")
 
 #If you haven't make any changes you can just read in the dat file: 
 
@@ -451,7 +451,7 @@ dat_means <- dat %>%
    
 dat_means <- as.data.frame(dat_means)
 
-str(dat_means) #58 obs of 40 vars
+str(dat_means) #58 obs of 55 vars
 
 #Reorder factor levels
 dat_means$season <- factor(dat_means$season, levels = c("Spring", "Summer", "Fall"))
@@ -1026,6 +1026,16 @@ k_fine <- ggplot(dat_means, aes(Distance_to_source_km, k_dday_fine) ) +
 k_fine
 dev.off()
 
+
+#kfine all seasons
+k_fine_all <- ggplot(dat_means, aes(Distance_to_source_km, k_dday_fine) ) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(b) microbes") 
+k_fine_all
+
+k_fine_all <- ggplot(dat_means, aes(dist_ds_dam_km, k_dday_fine) ) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance downstream of dam (km)") + labs(title = "(b) microbes") 
+k_fine_all
+
 tiff("CO2_kcoarse", units="in", width=4, height=4, res=300)
 CO2_kcoarse <- ggplot(subset(dat, site %in% downstream_sites), aes(k_dday_coarse, CO2_C_mg_m2_h)) + geom_point(colour="#862630", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + geom_smooth(method = "lm", se = F, size = 1, colour="#50161c")+ xlab("k coarse (dday-1)") + ylab(expression(mg~CO[2]*`-C`~m^-2*~h^-1))
 CO2_kcoarse
@@ -1053,6 +1063,16 @@ k_coarse <- ggplot(dat_means, aes(Distance_to_source_km, k_dday_coarse) ) +
   #geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Fall"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed")  
 k_coarse
 dev.off()
+
+#all seasons
+k_coarse_all <- ggplot(dat_means, aes(Distance_to_source_km, k_dday_coarse) ) +
+  geom_smooth(data = dat_means, method = "lm",  se = FALSE,colour = "grey", linewidth = 1, linetype="dashed") +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(a) invertebrates + microbes")  
+k_coarse_all
+
+k_coarse_all <- ggplot(dat_means, aes(dist_ds_dam_km, k_dday_coarse) ) +
+  geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance downstream of dam (km)") + labs(title ="(a) invertebrates + microbes") 
+k_coarse_all
 
 
 k_coarse_summer <- ggplot(subset(dat_means, season=="Summer" & k_dday_coarse <=0.013), aes(dist_to_source_km, k_dday_coarse) ) +   geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), legend.position="top",  axis.ticks.x=element_blank(), legend.title=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)")
@@ -1086,6 +1106,18 @@ k_fine_coarse <- ggarrange(k_coarse + theme(axis.title.x = element_blank() ),
                            k_fine, 
                            ncol = 1, nrow = 2, align="hv",common.legend = T,legend="top")
 k_fine_coarse
+
+dev.off()
+
+
+# all seasons
+
+tiff("k_fine_coarse_all.tiff", units="in", width=8, height=8, res=300)
+
+k_fine_coarse_all <- ggarrange(k_coarse_all + theme(axis.title.x = element_blank() ),  
+                           k_fine_all, 
+                           ncol = 1, nrow = 2, align="hv",common.legend = T,legend="top")
+k_fine_coarse_all
 
 dev.off()
 
@@ -3109,21 +3141,21 @@ summary(kfine_fall_lm) #no sig
 plot(kfine_fall_lm)
 
 #entire network
-kcoarse_lm <- lm(log(k_dday_fine) ~ dist_ds_dam_km, data=subset(dat_means))
-summary(kcoarse_lm) #not sig
-plot(kcoarse_lm)
+kfine_lm <- lm(log(k_dday_fine) ~ dist_ds_dam_km, data=subset(dat_means))
+summary(kfine_lm) #not sig
+plot(kfine_lm)
 
-kcoarse_lm <- lm(log(k_dday_fine) ~ Distance_to_source_km, data=subset(dat_means))
-summary(kcoarse_lm) #not sig
-plot(kcoarse_lm)
+kfine_lm <- lm(log(k_dday_fine) ~ Distance_to_source_km, data=subset(dat_means))
+summary(kfine_lm) #not sig
+plot(kfine_lm)
 
 kfine_spring_lm <- lm(log(k_dday_fine) ~ dist_to_source_km, data=subset(dat_means, season=="Fall" ))
 summary(kfine_spring_lm)
 plot(kfine_spring_lm)
 
-kfine_pos_lm <- lm(log(k_dday_fine) ~ position_d, data=subset(dat_means, season=="Fall"))
+kfine_pos_lm <- lm(log(k_dday_fine) ~ position_d, data=dat_means)  #subset(dat_means, season=="Fall"
 summary(kfine_pos_lm)
-plot(kfine_pos_lm)
+#plot(kfine_pos_lm)
 
 emmeans(kfine_pos_lm, pairwise ~ position_d) #post hoc test
 
@@ -3545,8 +3577,7 @@ semPaths(fitmCO2, intercept = FALSE,
 semPaths(fitmCO2, "std", edge.label.cex = 1.0, curvePivot = TRUE) #nice layout
 
 ##############################################################################
-#### Run PLS ####
-
+#### Run PL
 #Fit PCR model
 
 #no need to centre the variables as this is intrinsic to the pls algorithm 
