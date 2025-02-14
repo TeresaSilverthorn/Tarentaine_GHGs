@@ -477,7 +477,8 @@ write.csv(dat, "C:/Users/teres/Documents/Tarentaine 2022/Fieldwork_2022/Tarentai
 dat <- read.csv ("C:/Users/teres/Documents/Tarentaine 2022/Fieldwork_2022/Tarentaine_GHGs/dat.csv")
 
 ###############################################################################
-
+mean(dat$OM_g_m3, na.rm=T) 
+sd(dat$OM_g_m3, na.rm=T) 
 ##### Calculate site averages ####
 
 dat_means <- dat %>% 
