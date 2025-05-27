@@ -1212,10 +1212,14 @@ CO2_cond
 CH4_cond <- ggplot(dat, aes(water_conductivity_us_cm, CH4_C_mg_m2_h)) + geom_point(aes(colour=flow_state), size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 20), axis.text = element_text(size = 20, colour="black")) 
 CH4_cond
 
-tiff("dist_cond", units="in", width=4, height=4, res=300)
-dist_cond <- ggplot(dat, aes(dist_to_source_km, water_conductivity_us_cm, )) + geom_point(colour= "#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + xlab("Distance to source (km)") + ylab("Water conductivity (us/cm)")
+tiff("dist_cond.tiff", units="in", width=5, height=4, res=300)
+dist_cond <- ggplot(dat, aes(dist_to_source_km, water_conductivity_us_cm, )) + 
+  geom_point(colour= "#26867c", size=3.5, alpha=0.3) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black")) + xlab("Distance to source (km)") + ylab("Water conductivity (us/cm)")
 dist_cond
 dev.off()
+
+cor.test(dat$dist_to_source_km, dat$water_conductivity_us_cm, method = "spearman")
+
 
 #### GHG and canopy cover ####
 tiff("CO2_canopy", units="in", width=4, height=4, res=300)
@@ -1269,7 +1273,7 @@ kratio
 
 
 tiff("k_coarse", units="in", width=9, height=4, res=300)
-k_coarse <- ggplot(dat_means, aes(Distance_to_source_km, k_dday_coarse) ) +
+k_coarse <- ggplot(dat_means, aes(dist_to_source_km, k_dday_coarse) ) +
   geom_point(aes(colour=position_d, shape=season), size=3.5, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), panel.border = element_blank(), legend.position="top",  axis.ticks.x=element_blank(), legend.title=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + facet_wrap(~season) + labs(title = "(a) invertebrates + microbes") 
  # geom_smooth(data = subset(dat_means, position_d == "upstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#91278e", linewidth = 1, linetype="dashed") +
   #geom_smooth(data = subset(dat_means, position_d == "downstream" & season=="Spring"), method = "lm",  se = FALSE,colour = "#f7921e", linewidth = 1, linetype="dashed") +
@@ -1282,7 +1286,7 @@ dev.off()
 
 #all seasons
 k_coarse_all <- ggplot(dat_means, aes(dist_to_source_km, k_dday_coarse) ) +
-  geom_smooth(data = dat_means, method = "lm",  se = FALSE,colour = "grey", linewidth = 1, linetype="dashed") +
+  geom_smooth(data = dat_means, method = "lm",  se = FALSE,colour = "grey", linewidth = 1, linetype="solid") +
   geom_point(aes(colour=position_d, shape=season), size=4, alpha=0.6) + theme_bw() + theme(axis.title = element_text(), panel.grid.major = element_blank(), legend.title=element_blank(), panel.grid.minor = element_blank(),panel.background = element_blank(), legend.position="top",  panel.border = element_blank(),  axis.ticks.x=element_blank(), axis.line = element_line(colour = "black"), text = element_text(size = 12), axis.text = element_text(size = 12, colour="black"))  + scale_colour_manual(values=c("#91278e", "#1e6b63", "#f7921e")) + ylab(expression(paste(italic(k), " (", dday^-1, ")")))  +  xlab("Distance to the source (km)") + labs(title = "(a) invertebrates + microbes")  
 k_coarse_all
 
